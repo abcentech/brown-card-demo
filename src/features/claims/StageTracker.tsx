@@ -23,12 +23,12 @@ export default function StageTracker({ stage, labelled = false }: { stage: Stage
           >
             <span
               aria-hidden
-              className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full border-2 text-sm font-bold ${dot}`}
+              className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full border-2 text-base font-bold ${dot}`}
             >
               {done ? '✓' : i + 1}
             </span>
             {labelled && (
-              <span className={`mt-1 text-sm leading-tight ${current ? 'font-semibold text-ink' : 'text-muted'}`}>{name}</span>
+              <span className={`mt-1 text-base leading-tight ${current ? 'font-semibold text-ink' : 'text-muted'}`}>{name}</span>
             )}
             {!labelled && i < STAGES.length - 1 && <span aria-hidden className={`h-0.5 w-3 ${done ? 'bg-mint' : 'bg-line'}`} />}
           </li>

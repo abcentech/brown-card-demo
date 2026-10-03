@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest'
-import { enqueue, flushQueue, QUEUE_KEY, readQueue, removeFromQueue, type StorageLike } from '../src/features/reporter/queue'
+import {
+  enqueue, flushQueue, isResetError, QUEUE_KEY, readQueue, removeFromQueue, RESET_KEY, syncResetMarker, type StorageLike,
+} from '../src/features/reporter/queue'
 import { emptyDraft, toIncidentInput } from '../src/features/reporter/model'
 import { SAMPLE_COVERED } from '../src/shared/seed'
 import type { IncidentInput, IncidentResult } from '../src/shared/types'
@@ -58,6 +60,23 @@ describe('reporter offline queue', () => {
     const s = fakeStorage()
     s.setItem(QUEUE_KEY, '{not json')
     expect(readQueue(s)).toEqual([])
+  })
+
+  it('drops the queue when the reset marker changed while the screen was closed', () => {
+    const s = fakeStorage()
+    expect(syncResetMarker('seed-1', s)).toBe(false) // first visit: nothing to compare
+    enqueue(input('Benin'), s)
+    expect(syncResetMarker('seed-1', s)).toBe(false) // same demo run: queue kept
+    expect(readQueue(s)).toHaveLength(1)
+    expect(syncResetMarker('seed-2', s)).toBe(true) // Reset demo ran in between
+    expect(readQueue(s)).toEqual([])
+    expect(s.map.get(RESET_KEY)).toBe('seed-2')
+  })
+
+  it('recognises the adapter\'s mid-flight reset rejection', () => {
+    expect(isResetError(new Error('The demo was reset while this request was in flight.'))).toBe(true)
+    expect(isResetError(new Error('Network down'))).toBe(false)
+    expect(isResetError('reset')).toBe(false)
   })
 })
 

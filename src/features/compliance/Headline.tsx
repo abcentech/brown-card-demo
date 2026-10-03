@@ -70,20 +70,20 @@ export default function Headline({ pct, openPolicies, totalPolicies, openBatches
       </div>
 
       {/* Scale with the target band and the live marker */}
-      <svg viewBox="0 0 1000 110" className="mt-6 w-full" role="img" aria-label={`${fmtPct(pct)}, target band ${TARGET_BAND.low} to ${TARGET_BAND.high}%`}>
+      <svg viewBox="0 0 1000 124" className="mt-6 w-full" role="img" aria-label={`${fmtPct(pct)}, target band ${TARGET_BAND.low} to ${TARGET_BAND.high}%`}>
         {/* track */}
-        <rect x="0" y="40" width="1000" height="28" rx="6" className="fill-stone" />
+        <rect x="0" y="52" width="1000" height="28" rx="6" className="fill-stone" />
         {/* target band */}
-        <rect x={bandLeft * 10} y="40" width={(bandRight - bandLeft) * 10} height="28" className="fill-mint/25" />
-        <line x1={bandLeft * 10} x2={bandLeft * 10} y1="34" y2="74" className="stroke-mint" strokeWidth="3" />
-        <line x1={bandRight * 10} x2={bandRight * 10} y1="34" y2="74" className="stroke-mint" strokeWidth="3" />
-        <text x={((bandLeft + bandRight) / 2) * 10} y="26" textAnchor="middle" className="fill-mint text-[20px] font-semibold">
+        <rect x={bandLeft * 10} y="52" width={(bandRight - bandLeft) * 10} height="28" className="fill-mint/25" />
+        <line x1={bandLeft * 10} x2={bandLeft * 10} y1="46" y2="86" className="stroke-mint" strokeWidth="3" />
+        <line x1={bandRight * 10} x2={bandRight * 10} y1="46" y2="86" className="stroke-mint" strokeWidth="3" />
+        <text x={((bandLeft + bandRight) / 2) * 10} y="18" textAnchor="middle" className="fill-mint text-[20px] font-semibold">
           Target {TARGET_BAND.low} to {TARGET_BAND.high}%
         </text>
         {/* fill up to the current figure */}
         <rect
           x="0"
-          y="40"
+          y="52"
           height="28"
           rx="6"
           width={pos * 10}
@@ -92,17 +92,17 @@ export default function Headline({ pct, openPolicies, totalPolicies, openBatches
         />
         {/* marker */}
         <g style={{ transition: 'transform 800ms cubic-bezier(.2,.8,.2,1)', transform: `translateX(${pos * 10}px)` }}>
-          <polygon points="0,34 -12,16 12,16" className="fill-ink" />
-          <line x1="0" x2="0" y1="34" y2="74" className="stroke-ink" strokeWidth="4" />
-          <polygon points="0,74 -12,92 12,92" className="fill-ink" />
+          <polygon points="0,46 -12,28 12,28" className="fill-ink" />
+          <line x1="0" x2="0" y1="46" y2="86" className="stroke-ink" strokeWidth="4" />
+          <polygon points="0,86 -12,104 12,104" className="fill-ink" />
         </g>
         {/* ticks */}
         {ticks.map((t) => (
           <g key={t}>
-            <line x1={scalePosition(t) * 10} x2={scalePosition(t) * 10} y1="68" y2="78" className="stroke-muted" strokeWidth="2" />
+            <line x1={scalePosition(t) * 10} x2={scalePosition(t) * 10} y1="80" y2="90" className="stroke-muted" strokeWidth="2" />
             <text
               x={scalePosition(t) * 10}
-              y="104"
+              y="118"
               textAnchor={t === SCALE.min ? 'start' : t === SCALE.max ? 'end' : 'middle'}
               className="fill-muted text-[20px]"
             >

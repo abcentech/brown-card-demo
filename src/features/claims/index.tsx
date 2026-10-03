@@ -7,6 +7,10 @@ import { summarise } from './claimLogic'
 import './claims.css'
 
 const HIGHLIGHT_MS = 3000
+
+/** True when opened on its own at /?view=claims (no Shell, so no Shell banner). */
+const isStandalone = () =>
+  typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('view') === 'claims'
 const TICK_MS = 30_000
 
 /** Claims dashboard stand-in. Reads the store through useDemo; writes only through the platform adapter. */
@@ -48,20 +52,15 @@ export default function ClaimsScreen() {
   const [selectedRef, setSelectedRef] = useState<string | null>(null)
   const selected = useMemo(() => claims.find((c) => c.ref === selectedRef) ?? null, [claims, selectedRef])
 
-  // Local-only escalation requests. The store is frozen, so this is a demo note, never a write.
-  const [escalationRequests, setEscalationRequests] = useState<ReadonlySet<string>>(() => new Set())
-  const toggleEscalation = (ref: string) =>
-    setEscalationRequests((prev) => {
-      const next = new Set(prev)
-      if (next.has(ref)) next.delete(ref)
-      else next.add(ref)
-      return next
-    })
-
   const summary = useMemo(() => summarise(claims, now), [claims, now])
 
   return (
     <div className="mx-auto max-w-[1500px] space-y-5 text-base text-ink">
+      {isStandalone() && (
+        <div className="rounded-lg bg-gold px-4 py-2 text-center text-base font-semibold text-ink">
+          Illustrative data · Demo of the operators' platform · Not a live system
+        </div>
+      )}
       <header className="flex flex-wrap items-end justify-between gap-3">
         <div>
           <div className="inline-block rounded-full border border-gold bg-gold/15 px-3 py-1 text-base font-semibold text-brown">
@@ -94,8 +93,6 @@ export default function ClaimsScreen() {
             key={selected.ref}
             claim={selected}
             now={now}
-            escalationRequested={escalationRequests.has(selected.ref)}
-            onToggleEscalation={() => toggleEscalation(selected.ref)}
             onClose={() => setSelectedRef(null)}
           />
         )}

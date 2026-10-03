@@ -59,7 +59,7 @@ export default function Shell({ children }: { children: ReactNode }) {
           </div>
         </div>
 
-        <nav className="mt-4 grid gap-2 sm:grid-cols-5" aria-label="Demo steps">
+        <nav className="mt-3 grid gap-2 sm:grid-cols-5" aria-label="Demo steps">
           {STEP_LABELS.map((label, i) => {
             const current = step === i
             const done = i < step
@@ -90,7 +90,7 @@ export default function Shell({ children }: { children: ReactNode }) {
                   <span className={`block text-lg font-semibold leading-tight ${current ? 'text-paper' : 'text-ink'}`}>
                     {SHORT_LABELS[i]}
                   </span>
-                  <span className={`block text-sm ${current ? 'text-paper/80' : 'text-muted'}`}>
+                  <span className={`block text-base leading-tight ${current ? 'text-paper/80' : 'text-muted'}`}>
                     {current ? 'Current step' : done ? 'Done' : `Step ${i + 1}`}
                   </span>
                 </span>
@@ -98,8 +98,12 @@ export default function Shell({ children }: { children: ReactNode }) {
             )
           })}
         </nav>
+      </header>
 
-        <p className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 text-base text-muted">
+      <main className="flex-1 p-4 sm:p-7">{children}</main>
+
+      <footer className="flex flex-wrap items-center justify-between gap-3 border-t border-line bg-paper px-4 py-4 sm:px-7">
+        <p className="flex flex-wrap items-center gap-x-4 gap-y-1 text-base text-muted">
           <span>
             Step {step + 1} of 5: <span className="font-semibold text-ink">{STEP_LABELS[step]}</span>
           </span>
@@ -109,13 +113,8 @@ export default function Shell({ children }: { children: ReactNode }) {
           <span className="flex items-center gap-1.5">
             <Kbd>Shift</Kbd>+<Kbd>R</Kbd> reset
           </span>
+          <span>Illustrative demo · works offline · operator API to be confirmed</span>
         </p>
-      </header>
-
-      <main className="flex-1 p-4 sm:p-7">{children}</main>
-
-      <footer className="flex flex-wrap items-center justify-between gap-3 border-t border-line bg-paper px-4 py-4 sm:px-7">
-        <span className="text-base text-muted">Illustrative demo · works offline · operator API to be confirmed</span>
         <div className="flex gap-3">
           <button
             type="button"
@@ -141,7 +140,7 @@ export default function Shell({ children }: { children: ReactNode }) {
 
 function Kbd({ children }: { children: ReactNode }) {
   return (
-    <kbd className="rounded border border-line bg-paper px-1.5 py-0.5 font-mono text-sm font-semibold text-ink shadow-[0_1px_0_#c6c0ae]">
+    <kbd className="rounded border border-line bg-paper px-1.5 py-0.5 font-mono text-base font-semibold text-ink shadow-[0_1px_0_#c6c0ae]">
       {children}
     </kbd>
   )

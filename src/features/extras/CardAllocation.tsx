@@ -57,7 +57,7 @@ export default function CardAllocation() {
         <h3 id="alloc-title" className="text-xl font-semibold">
           Issue a policy, allocate a card
         </h3>
-        <span className="rounded-full border border-brown px-3 py-0.5 text-sm font-medium text-brown">
+        <span className="rounded-full border border-brown px-3 py-0.5 text-base font-medium text-brown">
           Stand-in for the operators' platform
         </span>
       </div>
@@ -116,7 +116,7 @@ export default function CardAllocation() {
 
         <div className="space-y-4">
           <div className="rounded-lg border border-line bg-stone p-4" aria-live="polite" data-testid="allocated-card">
-            <div className="text-sm font-medium uppercase tracking-wide text-muted">Allocated Brown Card number</div>
+            <div className="text-base font-medium uppercase tracking-wide text-muted">Allocated Brown Card number</div>
             {last ? (
               <>
                 <div className="mt-1 break-all font-mono text-3xl font-bold text-ink md:text-4xl">{last.cardNumber}</div>

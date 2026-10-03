@@ -54,14 +54,14 @@ export default function ClaimsTable({ claims, now, selectedRef, freshRefs, onSel
                       onSelect(c.ref)
                     }}
                     aria-pressed={selected}
-                    className="rounded font-mono text-lg font-bold text-brown underline-offset-4 hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-gold"
+                    className="whitespace-nowrap rounded font-mono text-lg font-bold text-brown underline-offset-4 hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-gold"
                   >
                     {c.ref}
                   </button>
                   {c.source === 'reporter' && (
-                    <div className="mt-0.5 text-sm font-semibold uppercase tracking-wide text-gold">New from reporter</div>
+                    <div className="mt-0.5 text-base font-semibold text-gold">New from reporter</div>
                   )}
-                  {c.escalated && <div className="mt-0.5 text-sm font-semibold text-clay">Escalated</div>}
+                  {c.escalated && <div className="mt-0.5 text-base font-semibold text-clay">Escalated</div>}
                 </td>
                 <td className="px-4 py-3">
                   <div className="font-semibold text-ink">{c.accidentCountry}</div>
@@ -71,7 +71,7 @@ export default function ClaimsTable({ claims, now, selectedRef, freshRefs, onSel
                 <td className="px-4 py-3 text-ink">{insurerName(c.insurerId)}</td>
                 <td className="px-4 py-3">
                   <StageTracker stage={c.stage} />
-                  <div className="mt-1 text-sm text-muted">Stage {c.stage + 1} of 5</div>
+                  <div className="mt-1 whitespace-nowrap text-base text-muted">Stage {c.stage + 1} of 5</div>
                 </td>
                 <td className="px-4 py-3">
                   <TurnaroundClock reading={readClock(c, now)} />

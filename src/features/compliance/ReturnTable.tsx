@@ -1,24 +1,8 @@
 import { useEffect, useState } from 'react'
 import { platform } from '../../platform'
 import type { ReturnRow } from '../../shared/types'
-import { buildReturnCsv, fmtInt, fmtPct, lowestCoverage, returnTotals } from './helpers'
-
-/**
- * Trigger a browser download of the quarterly return as CSV.
- * NOTE for the architect: the extras lane exports downloadReturnCsv() with the same columns from
- * src/features/extras/. This local version avoids a cross-lane import; swap it at merge time if preferred.
- */
-export function downloadQuarterlyReturnCsv(rows: ReturnRow[], filename = 'quarterly_return.csv') {
-  const blob = new Blob([buildReturnCsv(rows)], { type: 'text/csv;charset=utf-8' })
-  const url = URL.createObjectURL(blob)
-  const a = document.createElement('a')
-  a.href = url
-  a.download = filename
-  document.body.appendChild(a)
-  a.click()
-  a.remove()
-  setTimeout(() => URL.revokeObjectURL(url), 1000)
-}
+import { downloadReturnCsv } from '../extras/returnCsv'
+import { fmtInt, fmtPct, lowestCoverage, returnTotals } from './helpers'
 
 /** Preview of the NAICOM quarterly return from platform.getQuarterlyReturn(), refreshed on every store revision. */
 export default function ReturnTable({ revision }: { revision: number }) {
@@ -56,7 +40,7 @@ export default function ReturnTable({ revision }: { revision: number }) {
         <button
           type="button"
           disabled={!rows}
-          onClick={() => rows && downloadQuarterlyReturnCsv(rows)}
+          onClick={() => rows && void downloadReturnCsv(rows)}
           className="rounded-lg bg-ink px-4 py-2 text-base font-semibold text-paper disabled:opacity-40"
         >
           Download CSV

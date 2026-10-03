@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { INSURERS, UNCARDED_TOTAL, seedExceptions } from '../src/shared/seed'
 import { returnRows } from '../src/shared/selectors'
 import {
-  EMPTY_FILTER, RETURN_CSV_HEADER, applyFilter, buildReturnCsv, byCause, byChannel, confirmationText,
+  EMPTY_FILTER, PAGE_SIZE, applyFilter, assigneeFor, byCause, byChannel, confirmationText, groupByInsurer,
   lowestCoverage, returnTotals, scalePosition,
 } from '../src/features/compliance/helpers'
 
@@ -45,14 +45,19 @@ describe('compliance helpers', () => {
     expect(scalePosition(50)).toBe(0)
   })
 
-  it('builds a CSV with the agreed columns and one line per insurer', () => {
-    const rows = returnRows({ exceptions })
-    const csv = buildReturnCsv(rows)
-    const lines = csv.trimEnd().split('\r\n')
-    expect(lines[0]).toBe(RETURN_CSV_HEADER.join(','))
-    expect(lines).toHaveLength(INSURERS.length + 1)
-    expect(lines[1].startsWith('A,Insurer A,14000,')).toBe(true)
-    expect(lines[1].split(',')).toHaveLength(5)
+  it('groups selected batches by insurer for the assign action with an illustrative contact', () => {
+    const groups = groupByInsurer(exceptions.slice(0, 20))
+    const ids = [...groups.values()].flat()
+    expect(ids).toHaveLength(20)
+    for (const [insurerId, batch] of groups) {
+      expect(batch.every((id) => exceptions.find((e) => e.id === id)?.insurerId === insurerId)).toBe(true)
+      expect(assigneeFor(insurerId)).toBe(`Compliance desk, Insurer ${insurerId}`)
+    }
+    expect(INSURERS.map((i) => i.id)).toEqual(expect.arrayContaining([...groups.keys()]))
+  })
+
+  it('pages the table at 25 rows', () => {
+    expect(PAGE_SIZE).toBe(25)
   })
 
   it('totals the return to 100,000 policies at the starting figure', () => {

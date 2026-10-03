@@ -60,3 +60,14 @@ export async function submitReport(page: Page, cardNumber: string): Promise<{ cl
   return { claimRef, submittedAt }
 }
 
+/** Old seed identities that must never reappear (ACCEPTANCE: no real people or numbers). */
+export const OLD_SEED_NAMES = /okafor|yusuf|bello|bakare/i
+
+export async function expectBanner(page: Page) {
+  await expect(page.getByText(/illustrative data/i).first()).toBeVisible()
+}
+
+export async function expectAnonymised(page: Page) {
+  const text = await page.locator('body').innerText()
+  expect(text, 'page text must not contain the old seed names').not.toMatch(OLD_SEED_NAMES)
+}

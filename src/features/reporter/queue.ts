@@ -4,6 +4,8 @@
 import type { IncidentInput, IncidentResult } from '../../shared/types'
 
 export const QUEUE_KEY = 'bcd-reporter-queue-v1'
+/** The last reset marker this phone saw; lets us drop the queue after a reset that happened while the screen was closed. */
+export const RESET_KEY = 'bcd-reporter-reset-v1'
 
 export interface StorageLike {
   getItem(key: string): string | null
@@ -55,6 +57,28 @@ export function writeQueue(items: QueuedReport[], storage: StorageLike | null = 
 export function clearQueue(storage: StorageLike | null = defaultStorage()): void {
   writeQueue([], storage)
 }
+
+/**
+ * Records the current reset marker. Returns true (and empties the queue) when the marker changed
+ * since the last visit, i.e. "Reset demo" ran while this screen was not mounted.
+ */
+export function syncResetMarker(marker: string, storage: StorageLike | null = defaultStorage()): boolean {
+  if (!storage) return false
+  try {
+    const seen = storage.getItem(RESET_KEY)
+    storage.setItem(RESET_KEY, marker)
+    if (seen !== null && seen !== marker) {
+      clearQueue(storage)
+      return true
+    }
+  } catch {
+    // Storage blocked: nothing to reconcile.
+  }
+  return false
+}
+
+/** True for the adapter's "demo was reset while this request was in flight" rejection. */
+export const isResetError = (e: unknown): boolean => e instanceof Error && /reset/i.test(e.message)
 
 export function enqueue(
   input: IncidentInput,

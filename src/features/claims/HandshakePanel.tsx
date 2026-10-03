@@ -8,14 +8,13 @@ import TurnaroundClock from './TurnaroundClock'
 interface Props {
   claim: Claim
   now: number
-  escalationRequested: boolean
-  onToggleEscalation: () => void
   onClose: () => void
 }
 
 /** Side panel for one claim: the two bureaux, documents, escalation and the stage control. */
-export default function HandshakePanel({ claim, now, escalationRequested, onToggleEscalation, onClose }: Props) {
+export default function HandshakePanel({ claim, now, onClose }: Props) {
   const [busy, setBusy] = useState(false)
+  const [escalating, setEscalating] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const status = HANDSHAKE[claim.stage]
   const atEnd = claim.stage >= 4
@@ -31,6 +30,20 @@ export default function HandshakePanel({ claim, now, escalationRequested, onTogg
       setError(e instanceof Error ? e.message : 'Could not move the claim. Try again.')
     } finally {
       setBusy(false)
+    }
+  }
+
+  // Escalation is a real platform call: the flag persists in the store and syncs to the other window.
+  const escalate = async () => {
+    if (claim.escalated || escalating) return
+    setEscalating(true)
+    setError(null)
+    try {
+      await platform.escalateClaim(claim.ref)
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Could not escalate the claim. Try again.')
+    } finally {
+      setEscalating(false)
     }
   }
 
@@ -97,28 +110,25 @@ export default function HandshakePanel({ claim, now, escalationRequested, onTogg
           <div>
             <div className="text-base font-semibold text-ink">Council of Bureaux</div>
             <div className="text-base text-muted">
-              {claim.escalated
-                ? 'Escalated. The Council is following this claim.'
-                : escalationRequested
-                  ? 'Escalation requested (demo note, not sent).'
-                  : 'Not escalated.'}
+              {claim.escalated ? 'Escalated. The Council is following this claim.' : 'Not escalated.'}
             </div>
           </div>
           <span
             className={`shrink-0 rounded-full px-3 py-1 text-base font-semibold ${
-              claim.escalated || escalationRequested ? 'bg-clay text-paper' : 'bg-paper text-muted'
+              claim.escalated ? 'bg-clay text-paper' : 'bg-paper text-muted'
             }`}
           >
-            {claim.escalated ? 'Escalated' : escalationRequested ? 'Requested' : 'Clear'}
+            {claim.escalated ? 'Escalated' : 'Clear'}
           </span>
         </div>
         {!claim.escalated && (
           <button
             type="button"
-            onClick={onToggleEscalation}
-            className="mt-3 w-full rounded-lg border border-clay px-4 py-2 text-base font-semibold text-clay hover:bg-clay hover:text-paper focus:outline-none focus-visible:ring-2 focus-visible:ring-gold"
+            onClick={escalate}
+            disabled={escalating}
+            className="mt-3 w-full rounded-lg border border-clay px-4 py-2 text-base font-semibold text-clay hover:bg-clay hover:text-paper focus:outline-none focus-visible:ring-2 focus-visible:ring-gold disabled:cursor-wait disabled:opacity-60"
           >
-            {escalationRequested ? 'Withdraw escalation request' : 'Request escalation to the Council'}
+            {escalating ? 'Escalating...' : 'Escalate to the Council of Bureaux'}
           </button>
         )}
       </section>
@@ -143,7 +153,7 @@ export default function HandshakePanel({ claim, now, escalationRequested, onTogg
 function BureauCard({ title, name, status }: { title: string; name: string; status: string }) {
   return (
     <div className="rounded-lg border border-line bg-stone/60 p-3">
-      <div className="text-sm font-medium uppercase tracking-wide text-muted">{title}</div>
+      <div className="text-base font-medium text-muted">{title}</div>
       <div className="text-lg font-semibold text-ink">{name}</div>
       <div className="mt-1 inline-block rounded-full bg-mint px-2.5 py-0.5 text-base font-semibold text-paper">{status}</div>
     </div>

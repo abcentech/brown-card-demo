@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test'
+import { expect, test } from './fixtures'
 import { backfillAndExpectClimb, freshStart, readPct, selectSomeRows, STARTING_PCT } from './helpers'
 
 // ACCEPTANCE: the compliance figure starts at 93.4% and climbs when exceptions are cleared.

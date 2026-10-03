@@ -13,6 +13,7 @@ export interface DemoData {
   registry: Record<string, RegistryEntry>
   issued: IssuedPolicy[]
   revision: number // increments on every change; useful for "new arrival" effects
+  resetCount: number // increments on every reset; synced across windows so in-flight requests can be dropped
 }
 
 export interface DemoActions {
@@ -27,9 +28,8 @@ export interface DemoActions {
 
 export type DemoState = DemoData & DemoActions
 
-/** Bumped on every reset so adapters can drop requests that were in flight when the demo was reset. */
-let resetGeneration = 0
-export const getResetGeneration = () => resetGeneration
+/** Bumped on every reset (in any window) so adapters can drop requests that were in flight when the demo was reset. */
+export const getResetGeneration = () => useDemo.getState().resetCount ?? 0
 
 const fresh = (): DemoData => ({
   step: 0,
@@ -38,9 +38,10 @@ const fresh = (): DemoData => ({
   registry: seedRegistry(),
   issued: [],
   revision: 0,
+  resetCount: 0,
 })
 
-const DATA_KEYS: (keyof DemoData)[] = ['step', 'claims', 'exceptions', 'registry', 'issued', 'revision']
+const DATA_KEYS: (keyof DemoData)[] = ['step', 'claims', 'exceptions', 'registry', 'issued', 'revision', 'resetCount']
 const dataOf = (s: DemoState): DemoData =>
   Object.fromEntries(DATA_KEYS.map((k) => [k, s[k]])) as unknown as DemoData
 
@@ -77,10 +78,7 @@ export const useDemo = create<DemoState>()(
         }))
         return cleared
       },
-      reset: () => {
-        resetGeneration += 1
-        set({ ...fresh(), revision: get().revision + 1 })
-      },
+      reset: () => set({ ...fresh(), revision: get().revision + 1, resetCount: (get().resetCount ?? 0) + 1 }),
     }),
     { name: 'bcd-state-v1', partialize: (s) => dataOf(s) as unknown as DemoState },
   ),

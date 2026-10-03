@@ -27,8 +27,8 @@ export function ussdText(r: VerifyResult): string {
     invalid: 'INVALID NUMBER',
   }
   const lines = ['Brown Card check', r.cardNumber, `Status: ${head[r.status]}`]
-  if (r.holder) lines.push('Holder: Sample holder')
-  if (r.vehicle) lines.push('Vehicle: Sample vehicle')
+  if (r.holder) lines.push(`Holder: ${r.holder}`)
+  if (r.vehicle) lines.push(`Vehicle: ${r.vehicle}`)
   if (r.insurerId) lines.push(`Insurer: Insurer ${r.insurerId}`)
   if (r.cover) lines.push(`Cover: ${r.cover}`)
   if (r.validTo) lines.push(`Valid to: ${r.validTo}`)
@@ -97,14 +97,15 @@ export default function ShortCodeSimulator() {
     setScreen('Brown Card check\n\nEnter the card number\nas printed on the card:')
   }
 
+  // Plain paper text on the dark screen for projector contrast; the outcome colours the frame, not the words.
   const tone =
-    lastStatus === 'covered' ? 'text-mint' : lastStatus === 'lapsed' ? 'text-gold' : lastStatus ? 'text-clay' : 'text-paper'
+    lastStatus === 'covered' ? 'ring-4 ring-mint' : lastStatus === 'lapsed' ? 'ring-4 ring-gold' : lastStatus ? 'ring-4 ring-clay' : ''
 
   return (
     <section aria-labelledby="ussd-title" data-testid="short-code-simulator" className="rounded-xl border border-line bg-paper p-5 shadow-sm">
       <div className="mb-4 flex flex-wrap items-baseline justify-between gap-2">
         <h3 id="ussd-title" className="text-xl font-semibold">Check a card by short code</h3>
-        <span className="rounded-full border border-brown px-3 py-0.5 text-sm font-medium text-brown">
+        <span className="rounded-full border border-brown px-3 py-0.5 text-base font-medium text-brown">
           Placeholder short code <span className="font-mono font-bold">{SHORT_CODE}</span>
         </span>
       </div>
@@ -115,8 +116,9 @@ export default function ShortCodeSimulator() {
           <div className="mx-auto mb-2 h-1.5 w-16 rounded-full bg-ink" aria-hidden />
           <pre
             data-testid="ussd-screen"
+            data-status={lastStatus ?? undefined}
             aria-live="polite"
-            className={`min-h-[190px] whitespace-pre-wrap break-words rounded-lg bg-ink p-3 font-mono text-base leading-snug ${tone}`}
+            className={`min-h-[190px] whitespace-pre-wrap break-words rounded-lg bg-ink p-3 font-mono text-base leading-snug text-paper ${tone}`}
           >
             {phase === 'dial' ? (screen || `Dial ${SHORT_CODE}\nthen press Call`) : screen}
             {phase === 'dial' && dialled && `\n\n> ${dialled}`}
@@ -208,7 +210,7 @@ export default function ShortCodeSimulator() {
                   }}
                   className={`min-h-[44px] rounded-full border px-4 py-2 text-left leading-tight ${c.label === 'Issued just now' ? 'border-mint bg-mint/10' : 'border-line bg-stone'} hover:border-ink`}
                 >
-                  <span className="block text-sm text-muted">{c.label}</span>
+                  <span className="block text-base text-muted">{c.label}</span>
                   <span className="font-mono font-semibold">{c.card}</span>
                 </button>
               ))}

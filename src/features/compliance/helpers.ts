@@ -98,6 +98,16 @@ export function assigneeFor(insurerId: string): string {
   return `Compliance desk, Insurer ${insurerId}`
 }
 
+/** Group ids by insurer so each batch is assigned to its own insurer's desk. */
+export function groupByInsurer(rows: ExceptionRow[]): Map<string, string[]> {
+  const m = new Map<string, string[]>()
+  for (const r of rows) m.set(r.insurerId, [...(m.get(r.insurerId) ?? []), r.id])
+  return m
+}
+
+/** Rows per page in the exception table; "Show more" reveals the next page. */
+export const PAGE_SIZE = 25
+
 /** Plain-English confirmation after an action. */
 export function confirmationText(action: 'backfill' | 'remind' | 'assign', batches: number, policies: number, insurerIds: string[]): string {
   const b = `${fmtInt(batches)} ${batches === 1 ? 'batch' : 'batches'}`
@@ -108,24 +118,7 @@ export function confirmationText(action: 'backfill' | 'remind' | 'assign', batch
   return `Assigned ${b} (${p}) to ${desks}`
 }
 
-// CSV for the NAICOM quarterly return.
-// NOTE for the architect: the extras lane exports a downloadReturnCsv() with the same columns.
-// This local builder exists so the compliance lane does not import across lanes; swap it for the
-// extras export at merge time if preferred.
-export const RETURN_CSV_HEADER = ['insurer_id', 'insurer', 'motor_policies', 'cards_generated', 'coverage_pct'] as const
-
-function csvCell(v: string | number): string {
-  const s = String(v)
-  return /[",\n\r]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s
-}
-
-export function buildReturnCsv(rows: ReturnRow[]): string {
-  const lines = [RETURN_CSV_HEADER.join(',')]
-  for (const r of rows) {
-    lines.push([r.insurerId, r.insurerName, r.motorPolicies, r.cardsGenerated, r.coveragePct.toFixed(1)].map(csvCell).join(','))
-  }
-  return lines.join('\r\n') + '\r\n'
-}
+// The CSV builder lives in src/features/extras/returnCsv.ts (one implementation, approved by the architect).
 
 /** Totals row for the return preview. */
 export function returnTotals(rows: ReturnRow[]): { motorPolicies: number; cardsGenerated: number; coveragePct: number } {

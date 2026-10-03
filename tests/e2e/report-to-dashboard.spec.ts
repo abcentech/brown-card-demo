@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test'
+import { expect, test } from './fixtures'
 import { SAMPLE_COVERED } from '../../src/shared/seed'
 import { freshStart, submitReport } from './helpers'
 

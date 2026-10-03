@@ -1,10 +1,11 @@
 import { useEffect, useMemo, useState } from 'react'
 import { platform } from '../../platform'
+import { getResetGeneration } from '../../state/store'
 import { INSURERS } from '../../shared/seed'
 import type { ExceptionAction, ExceptionRow, ExceptionStatus } from '../../shared/types'
 import {
-  CAUSES, CAUSE_LABEL, CHANNELS, CHANNEL_LABEL, EMPTY_FILTER, STATUSES, STATUS_LABEL,
-  applyFilter, assigneeFor, confirmationText, fmtInt, sum, type ExceptionFilter,
+  CAUSES, CAUSE_LABEL, CHANNELS, CHANNEL_LABEL, EMPTY_FILTER, PAGE_SIZE, STATUSES, STATUS_LABEL,
+  applyFilter, assigneeFor, confirmationText, fmtInt, groupByInsurer, sum, type ExceptionFilter,
 } from './helpers'
 
 const BADGE: Record<ExceptionStatus, string> = {
@@ -34,8 +35,12 @@ export default function ExceptionList({ exceptions, onConfirm }: Props) {
   const [filter, setFilter] = useState<ExceptionFilter>(EMPTY_FILTER)
   const [selected, setSelected] = useState<Set<string>>(() => new Set())
   const [busy, setBusy] = useState<ExceptionAction | null>(null)
+  const [pages, setPages] = useState(1)
 
   const filtered = useMemo(() => applyFilter(exceptions, filter), [exceptions, filter])
+  // Only the first page(s) are in the DOM; selection and "select all" still work over the whole filtered set.
+  const visible = filtered.length > pages * PAGE_SIZE ? filtered.slice(0, pages * PAGE_SIZE) : filtered
+  const hiddenCount = filtered.length - visible.length
   const byId = useMemo(() => new Map(exceptions.map((e) => [e.id, e])), [exceptions])
 
   // Tolerate Reset demo and resolved rows: drop selected ids that are no longer open.
@@ -71,9 +76,22 @@ export default function ExceptionList({ exceptions, onConfirm }: Props) {
     const rows = selectedRows.filter((e) => e.status !== 'resolved')
     if (!rows.length || busy) return
     setBusy(action)
+    const generation = getResetGeneration()
     try {
-      const ids = rows.map((e) => e.id)
-      const cleared = await platform.applyExceptionAction(ids, action)
+      let cleared = 0
+      if (action === 'assign') {
+        // One call per insurer so each batch is assigned to its own insurer's compliance desk.
+        const groups = [...groupByInsurer(rows)]
+        await Promise.all(groups.map(([insurerId, ids]) => platform.applyExceptionAction(ids, 'assign', assigneeFor(insurerId))))
+      } else {
+        cleared = await platform.applyExceptionAction(rows.map((e) => e.id), action)
+      }
+      // Reset demo while the request was in flight: the platform did nothing, so say so neutrally.
+      if (getResetGeneration() !== generation || (action === 'backfill' && cleared === 0)) {
+        onConfirm('The demo was reset. Nothing changed.')
+        setSelected(new Set())
+        return
+      }
       const policies = action === 'backfill' ? cleared : sum(rows)
       const insurers = [...new Set(rows.map((e) => e.insurerId))].sort()
       onConfirm(confirmationText(action, rows.length, policies, insurers))
@@ -83,7 +101,14 @@ export default function ExceptionList({ exceptions, onConfirm }: Props) {
     }
   }
 
-  const set = <K extends keyof ExceptionFilter>(k: K, v: ExceptionFilter[K]) => setFilter((f) => ({ ...f, [k]: v }))
+  const set = <K extends keyof ExceptionFilter>(k: K, v: ExceptionFilter[K]) => {
+    setFilter((f) => ({ ...f, [k]: v }))
+    setPages(1)
+  }
+  const clearFilters = () => {
+    setFilter(EMPTY_FILTER)
+    setPages(1)
+  }
   const assignTargets = [...new Set(selectedRows.map((e) => e.insurerId))].sort()
 
   return (
@@ -134,7 +159,7 @@ export default function ExceptionList({ exceptions, onConfirm }: Props) {
           </select>
         </label>
         {(filter.insurerId || filter.channel || filter.cause || filter.status) && (
-          <button type="button" onClick={() => setFilter(EMPTY_FILTER)} className="rounded-lg border border-line px-3 py-2 text-base text-muted hover:text-ink">
+          <button type="button" onClick={clearFilters} className="rounded-lg border border-line px-3 py-2 text-base text-muted hover:text-ink">
             Clear filters
           </button>
         )}
@@ -188,7 +213,7 @@ export default function ExceptionList({ exceptions, onConfirm }: Props) {
                 <td colSpan={7} className="px-3 py-6 text-center text-muted">No batches match these filters.</td>
               </tr>
             )}
-            {filtered.map((e) => {
+            {visible.map((e) => {
               const resolved = e.status === 'resolved'
               const isSel = selected.has(e.id)
               return (
@@ -210,7 +235,7 @@ export default function ExceptionList({ exceptions, onConfirm }: Props) {
                   <td className="px-3 py-2 text-right tabular-nums">{fmtInt(e.policiesAffected)}</td>
                   <td className="px-3 py-2">
                     <StatusBadge status={e.status} />
-                    {e.status === 'assigned' && <span className="ml-2 text-muted">{assigneeFor(e.insurerId)}</span>}
+                    {e.status === 'assigned' && e.assignee && <span className="ml-2 text-muted">{e.assignee}</span>}
                   </td>
                 </tr>
               )
@@ -218,6 +243,14 @@ export default function ExceptionList({ exceptions, onConfirm }: Props) {
           </tbody>
         </table>
       </div>
+      {hiddenCount > 0 && (
+        <div className="mt-3 flex flex-wrap items-center justify-between gap-3 text-base">
+          <p className="text-muted">Showing the first {visible.length} of {filtered.length} batches. Select all above still covers every batch in view.</p>
+          <button type="button" onClick={() => setPages((p) => p + 1)} className="rounded-lg border border-line px-4 py-2 font-semibold hover:bg-stone">
+            Show {Math.min(PAGE_SIZE, hiddenCount)} more
+          </button>
+        </div>
+      )}
     </section>
   )
 }

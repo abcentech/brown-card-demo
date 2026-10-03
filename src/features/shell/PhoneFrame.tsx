@@ -5,16 +5,17 @@ export default function PhoneFrame({ children }: { children: ReactNode }) {
   const time = useClockLabel()
   return (
     <div className="mx-auto w-[400px] max-w-full">
-      <p className="mb-3 text-center text-base font-semibold text-muted">Phone view · report from the accident scene</p>
+      <p className="mb-2 text-center text-base font-semibold text-muted">Phone view · report from the accident scene</p>
       <div className="relative rounded-[3rem] bg-ink p-[10px] shadow-[0_30px_60px_-20px_rgba(18,38,30,0.6)] ring-1 ring-ink2">
         {/* Side buttons */}
         <span aria-hidden className="absolute -left-[3px] top-28 h-10 w-[3px] rounded-l bg-ink2" />
         <span aria-hidden className="absolute -left-[3px] top-44 h-16 w-[3px] rounded-l bg-ink2" />
         <span aria-hidden className="absolute -right-[3px] top-36 h-20 w-[3px] rounded-r bg-ink2" />
 
-        <div className="flex h-[780px] max-h-[78vh] flex-col overflow-hidden rounded-[2.4rem] bg-paper">
+        {/* Height follows the window so the whole phone sits above the fold on a 768px projector; the screen inside scrolls. */}
+        <div className="flex h-[clamp(360px,calc(100dvh_-_320px),780px)] flex-col overflow-hidden rounded-[2.4rem] bg-paper">
           {/* Status bar with notch */}
-          <div className="relative flex h-11 shrink-0 items-center justify-between bg-paper px-6 text-sm font-semibold text-ink">
+          <div className="relative flex h-11 shrink-0 items-center justify-between bg-paper px-6 text-base font-semibold text-ink">
             <span className="tabular-nums">{time}</span>
             <span aria-hidden className="absolute left-1/2 top-0 h-7 w-32 -translate-x-1/2 rounded-b-2xl bg-ink" />
             <span className="flex items-center gap-1.5" aria-label="Signal, Wi-Fi and battery">

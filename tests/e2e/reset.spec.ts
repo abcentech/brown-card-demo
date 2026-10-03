@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test'
+import { expect, test } from './fixtures'
 import { backfillAndExpectClimb, freshStart, readPct, selectSomeRows, STARTING_PCT } from './helpers'
 
 // ACCEPTANCE: Reset returns the app to the starting state (compliance back at 93.4%).
