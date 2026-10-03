@@ -10,3 +10,19 @@ Add one line each: lane, file, what you need, why.
 - Extras/tests, `package.json`: optionally add a test:e2e script after approval; portable runner in tests/e2e uses the bundled Playwright runtime without changing dependencies.
 - extras / package.json: add `"test:e2e": "playwright test"` to scripts (and `@playwright/test` is now in devDependencies, approved) so the browser tests in tests/e2e run with `npm run test:e2e`.
 - extras / vite.config.ts: add `test.exclude: ['tests/e2e/**', 'node_modules/**']` so vitest never picks up the Playwright specs (they are named *.spec.ts today, so the current include pattern skips them, but the exclude makes it safe if that changes).
+
+## Architect decisions (3 Oct 2026)
+- Seed names and plates: DONE. Registry now uses 'Sample holder N' and 'SAMPLE-00N' identities.
+- New claims start at stage 0 (Notified): DONE in the mock; test updated. Covered cards still show as verified on the reporter result.
+- Reset generation: DONE.  in the store; the mock drops createIncident, applyExceptionAction and issuePolicy results that were in flight across a reset.
+- Escalation: DONE.  sets the claim's  flag. Claims lane: use it instead of the local note.
+- Assignment contact: DONE.  persists . Compliance lane: pass the contact and show it from the row.
+- test:e2e script and vitest exclude: DONE.
+
+## Architect decisions (3 Oct 2026)
+- Seed names and plates: DONE. Registry now uses "Sample holder N" and "SAMPLE-00N" identities.
+- New claims start at stage 0 (Notified): DONE in the mock; test updated. Covered cards still show as verified on the reporter result.
+- Reset generation: DONE. `getResetGeneration()` in the store; the mock drops createIncident, applyExceptionAction and issuePolicy results that were in flight across a reset.
+- Escalation: DONE. `platform.escalateClaim(ref)` sets the claim's `escalated` flag. Claims lane: use it instead of the local note.
+- Assignment contact: DONE. `applyExceptionAction(ids, 'assign', assignee?)` persists `ExceptionRow.assignee`. Compliance lane: pass the contact and show it from the row.
+- test:e2e script and vitest exclude: DONE.

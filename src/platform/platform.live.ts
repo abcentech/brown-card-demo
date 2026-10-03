@@ -14,4 +14,5 @@ export const livePlatform: Platform = {
   getQuarterlyReturn: todo('getQuarterlyReturn'),
   issuePolicy: todo('issuePolicy'),
   advanceClaim: todo('advanceClaim'),
+  escalateClaim: todo('escalateClaim'),
 }

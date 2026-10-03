@@ -1,11 +1,20 @@
 import { mulberry32 } from '../shared/rng'
 import { formatCard, hasValidCheckDigit, isWellFormed, normaliseCard, randomCard } from '../shared/cardNumber'
 import { returnRows } from '../shared/selectors'
-import { useDemo } from '../state/store'
+import { getResetGeneration, useDemo } from '../state/store'
 import type { Platform } from './platform'
 import type { Claim, IssuedPolicy, VerifyResult } from '../shared/types'
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms))
+/** Resolves false if the demo was reset while we were waiting, so the caller must not mutate the fresh state. */
+const waitUnlessReset = async (ms: number) => {
+  const gen = getResetGeneration()
+  await sleep(ms)
+  return getResetGeneration() === gen
+}
+class ResetDuringRequest extends Error {
+  constructor() { super('The demo was reset while this request was in flight.') }
+}
 const LATENCY = { verify: 350, create: 600, list: 120, action: 500, issue: 500 }
 let counter = Date.now() % 100000
 const rng = mulberry32(counter)
@@ -32,7 +41,7 @@ export const mockPlatform: Platform = {
   },
 
   async createIncident(input) {
-    await sleep(LATENCY.create)
+    if (!(await waitUnlessReset(LATENCY.create))) throw new ResetDuringRequest()
     const v = await mockPlatform.verifyCard(input.cardNumber)
     const verified = v.status === 'covered'
     counter += 1
@@ -46,7 +55,7 @@ export const mockPlatform: Platform = {
       accidentCountry: input.country,
       handlingBureau: `${input.country} Bureau`,
       issuingBureau: 'Nigeria Bureau',
-      stage: verified ? 1 : 0,
+      stage: 0, // every new record starts as Notified (docs/CONTRACT.md)
       notifiedAt: new Date().toISOString(),
       deadlineDays: 180,
       reserveFcfa: 0,
@@ -74,9 +83,9 @@ export const mockPlatform: Platform = {
     return useDemo.getState().exceptions
   },
 
-  async applyExceptionAction(ids, action) {
-    await sleep(LATENCY.action)
-    return useDemo.getState().applyExceptionAction(ids, action)
+  async applyExceptionAction(ids, action, assignee) {
+    if (!(await waitUnlessReset(LATENCY.action))) return 0
+    return useDemo.getState().applyExceptionAction(ids, action, assignee)
   },
 
   async getQuarterlyReturn() {
@@ -85,7 +94,7 @@ export const mockPlatform: Platform = {
   },
 
   async issuePolicy(input): Promise<IssuedPolicy> {
-    await sleep(LATENCY.issue)
+    if (!(await waitUnlessReset(LATENCY.issue))) throw new ResetDuringRequest()
     const cardNumber = randomCard(rng) || formatCard('00000000')
     const validTo = addMonths(new Date(), input.termMonths).toISOString().slice(0, 10)
     const issued: IssuedPolicy = { ...input, cardNumber, validTo }
@@ -102,5 +111,9 @@ export const mockPlatform: Platform = {
 
   async advanceClaim(ref) {
     useDemo.getState().advanceClaim(ref)
+  },
+
+  async escalateClaim(ref) {
+    useDemo.getState().escalateClaim(ref)
   },
 }

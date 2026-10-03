@@ -21,7 +21,7 @@ describe('mock platform', () => {
     const claims = useDemo.getState().claims
     expect(claims).toHaveLength(before + 1)
     expect(claims[0].ref).toBe(r.claimRef)
-    expect(claims[0].stage).toBe(1) // verified card starts at 'Card verified'
+    expect(claims[0].stage).toBe(0) // every new record starts as Notified (CONTRACT.md)
     expect(claims[0].source).toBe('reporter')
   })
 

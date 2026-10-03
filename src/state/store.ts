@@ -19,12 +19,17 @@ export interface DemoActions {
   setStep: (s: DemoStep) => void
   addClaim: (c: Claim) => void
   advanceClaim: (ref: string) => void
+  escalateClaim: (ref: string) => void
   addRegistryEntry: (card: string, entry: RegistryEntry, issued: IssuedPolicy) => void
-  applyExceptionAction: (ids: string[], action: ExceptionAction) => number
+  applyExceptionAction: (ids: string[], action: ExceptionAction, assignee?: string) => number
   reset: () => void
 }
 
 export type DemoState = DemoData & DemoActions
+
+/** Bumped on every reset so adapters can drop requests that were in flight when the demo was reset. */
+let resetGeneration = 0
+export const getResetGeneration = () => resetGeneration
 
 const fresh = (): DemoData => ({
   step: 0,
@@ -50,10 +55,12 @@ export const useDemo = create<DemoState>()(
           claims: s.claims.map((c) => (c.ref === ref && c.stage < 4 ? { ...c, stage: (c.stage + 1) as Claim['stage'] } : c)),
           revision: s.revision + 1,
         })),
+      escalateClaim: (ref) =>
+        set((s) => ({ claims: s.claims.map((c) => (c.ref === ref ? { ...c, escalated: true } : c)), revision: s.revision + 1 })),
       addRegistryEntry: (card, entry, issued) =>
         set((s) => ({ registry: { ...s.registry, [card]: entry }, issued: [issued, ...s.issued], revision: s.revision + 1 })),
       // Returns the number of policies cleared. 'backfill' resolves a batch; 'remind' and 'assign' mark progress.
-      applyExceptionAction: (ids, action) => {
+      applyExceptionAction: (ids, action, assignee) => {
         const wanted = new Set(ids)
         let cleared = 0
         set((s) => ({
@@ -63,13 +70,17 @@ export const useDemo = create<DemoState>()(
               cleared += e.policiesAffected
               return { ...e, status: 'resolved' as const }
             }
-            return { ...e, status: action === 'remind' ? ('reminded' as const) : ('assigned' as const) }
+            if (action === 'remind') return { ...e, status: 'reminded' as const }
+            return { ...e, status: 'assigned' as const, assignee: assignee ?? e.assignee ?? 'Compliance desk' }
           }),
           revision: s.revision + 1,
         }))
         return cleared
       },
-      reset: () => set({ ...fresh(), revision: get().revision + 1 }),
+      reset: () => {
+        resetGeneration += 1
+        set({ ...fresh(), revision: get().revision + 1 })
+      },
     }),
     { name: 'bcd-state-v1', partialize: (s) => dataOf(s) as unknown as DemoState },
   ),

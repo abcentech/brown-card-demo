@@ -16,11 +16,13 @@ export interface Platform {
   /** GET /compliance/policies?missing_card=true */
   listMissingCardPolicies(): Promise<ExceptionRow[]>
   /** POST /cards/backfill (and reminder / assignment actions). Resolves to policies cleared. */
-  applyExceptionAction(ids: string[], action: ExceptionAction): Promise<number>
+  applyExceptionAction(ids: string[], action: ExceptionAction, assignee?: string): Promise<number>
   /** GET /returns/quarterly */
   getQuarterlyReturn(): Promise<ReturnRow[]>
   /** Platform stand-in: issue a policy and allocate a card */
   issuePolicy(input: PolicyInput): Promise<IssuedPolicy>
   /** Demo helper: move a claim to its next stage (stands in for claim.status_changed) */
   advanceClaim(ref: string): Promise<void>
+  /** Demo helper: flag a claim for the Council of Bureaux (stands in for an escalation call) */
+  escalateClaim(ref: string): Promise<void>
 }

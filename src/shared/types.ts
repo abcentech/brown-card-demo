@@ -19,6 +19,7 @@ export interface ExceptionRow {
   cause: Cause
   policiesAffected: number
   status: ExceptionStatus
+  assignee?: string // illustrative contact, set by the assign action
 }
 
 export const STAGES = ['Notified', 'Card verified', 'Assessed', 'Offer made', 'Paid'] as const

@@ -80,10 +80,10 @@ export const SAMPLE_BAD_CHECK = 'NG-26-4A7C-1180-9' // fails the check digit
 export function seedRegistry(): Record<string, RegistryEntry> {
   const yr = (y: number, m: number, d: number) => new Date(Date.UTC(y, m, d)).toISOString().slice(0, 10)
   return {
-    [SAMPLE_COVERED]: { insurerId: 'A', holder: 'Chinedu Okafor', vehicle: 'Toyota Hilux · LSD-772-KM', cover: 'Comprehensive', validTo: yr(2027, 1, 14), state: 'covered' },
-    [SAMPLE_LAPSED]: { insurerId: 'D', holder: 'Fatima Yusuf', vehicle: 'Honda Accord · ABC-204-LA', cover: 'Third party', validTo: yr(2026, 6, 30), state: 'lapsed' },
-    [formatCard('2B6E0A31')]: { insurerId: 'C', holder: 'Amina Bello', vehicle: 'Toyota Corolla · KJA-418-XA', cover: 'Third party', validTo: yr(2027, 3, 2), state: 'covered' },
-    [formatCard('C0F4D923')]: { insurerId: 'F', holder: 'Tunde Bakare', vehicle: 'Mack truck · EKY-419-FG', cover: 'Comprehensive', validTo: yr(2027, 5, 21), state: 'covered' },
+    [SAMPLE_COVERED]: { insurerId: 'A', holder: 'Sample holder 1', vehicle: 'Pick-up · SAMPLE-001', cover: 'Comprehensive', validTo: yr(2027, 1, 14), state: 'covered' },
+    [SAMPLE_LAPSED]: { insurerId: 'D', holder: 'Sample holder 2', vehicle: 'Saloon car · SAMPLE-002', cover: 'Third party', validTo: yr(2026, 6, 30), state: 'lapsed' },
+    [formatCard('2B6E0A31')]: { insurerId: 'C', holder: 'Sample holder 3', vehicle: 'Saloon car · SAMPLE-003', cover: 'Third party', validTo: yr(2027, 3, 2), state: 'covered' },
+    [formatCard('C0F4D923')]: { insurerId: 'F', holder: 'Sample holder 4', vehicle: 'Truck · SAMPLE-004', cover: 'Comprehensive', validTo: yr(2027, 5, 21), state: 'covered' },
   }
 }
 
