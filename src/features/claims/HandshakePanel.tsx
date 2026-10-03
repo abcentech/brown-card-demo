@@ -1,7 +1,8 @@
 import { useState } from 'react'
 import { platform } from '../../platform'
 import { STAGES, type Claim } from '../../shared/types'
-import { formatDate, formatFcfa, HANDSHAKE, insurerName, readClock } from './claimLogic'
+import CorridorDiagram from './CorridorDiagram'
+import { formatDate, formatFcfa, insurerName, readClock } from './claimLogic'
 import StageTracker from './StageTracker'
 import TurnaroundClock from './TurnaroundClock'
 
@@ -11,12 +12,15 @@ interface Props {
   onClose: () => void
 }
 
-/** Side panel for one claim: the two bureaux, documents, escalation and the stage control. */
+/** Shared frame for the side panel so the empty state and the claim view line up. */
+export const PANEL_CLASS =
+  'cl-card flex flex-col gap-5 rounded-xl border border-line bg-paper p-5 xl:sticky xl:top-14 xl:max-h-[calc(100vh-4.5rem)] xl:overflow-y-auto'
+
+/** Side panel for one claim: actions first, then the stage, the corridor, the clock, documents and the Council. */
 export default function HandshakePanel({ claim, now, onClose }: Props) {
   const [busy, setBusy] = useState(false)
   const [escalating, setEscalating] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const status = HANDSHAKE[claim.stage]
   const atEnd = claim.stage >= 4
   const reading = readClock(claim, now)
 
@@ -48,7 +52,7 @@ export default function HandshakePanel({ claim, now, onClose }: Props) {
   }
 
   return (
-    <aside className="flex flex-col gap-5 rounded-xl border border-line bg-paper p-5" aria-label={`Claim ${claim.ref}`}>
+    <aside className={PANEL_CLASS} aria-label={`Claim ${claim.ref}`}>
       <div className="flex items-start justify-between gap-3">
         <div>
           <div className="text-base font-medium text-muted">Claim</div>
@@ -64,22 +68,49 @@ export default function HandshakePanel({ claim, now, onClose }: Props) {
         </button>
       </div>
 
+      {/* Actions sit at the top so they stay in reach on a short screen. */}
+      <div className="grid gap-2">
+        <button
+          type="button"
+          onClick={advance}
+          disabled={atEnd || busy}
+          className="w-full rounded-xl bg-brown px-4 py-3 text-lg font-semibold text-paper shadow-[0_8px_20px_-10px_rgba(122,70,32,0.7)] hover:bg-ink focus:outline-none focus-visible:ring-2 focus-visible:ring-gold disabled:cursor-not-allowed disabled:bg-line disabled:text-muted disabled:shadow-none"
+        >
+          {atEnd ? 'Claim paid. No further stage' : busy ? 'Moving...' : `Move to next stage: ${STAGES[claim.stage + 1]}`}
+        </button>
+        {!claim.escalated && (
+          <button
+            type="button"
+            onClick={escalate}
+            disabled={escalating}
+            className="w-full rounded-xl border border-clay px-4 py-2 text-base font-semibold text-clay hover:bg-clay hover:text-paper focus:outline-none focus-visible:ring-2 focus-visible:ring-gold disabled:cursor-wait disabled:opacity-60"
+          >
+            {escalating ? 'Escalating...' : 'Escalate to the Council of Bureaux'}
+          </button>
+        )}
+        {error && (
+          <p role="alert" className="text-base font-semibold text-clay">
+            {error}
+          </p>
+        )}
+      </div>
+
       <section aria-labelledby={`${claim.ref}-stage`}>
-        <h4 id={`${claim.ref}-stage`} className="mb-2 text-base font-medium text-muted">
+        <h4 id={`${claim.ref}-stage`} className="mb-3 text-base font-medium text-muted">
           Stage {claim.stage + 1} of {STAGES.length}: <span className="font-semibold text-ink">{STAGES[claim.stage]}</span>
         </h4>
         <StageTracker stage={claim.stage} labelled />
       </section>
 
-      <section>
-        <h4 className="mb-2 text-base font-medium text-muted">Turnaround clock</h4>
-        <TurnaroundClock reading={reading} large />
-        <div className="mt-1 text-base text-muted">Notified {formatDate(claim.notifiedAt)}</div>
+      <section aria-label="Bureau handshake">
+        <h4 className="mb-2 text-base font-medium text-muted">The corridor</h4>
+        <CorridorDiagram claim={claim} />
       </section>
 
-      <section aria-label="Bureau handshake" className="grid grid-cols-2 gap-3">
-        <BureauCard title="Issuing bureau" name={claim.issuingBureau} status={status.issuing} />
-        <BureauCard title="Handling bureau" name={claim.handlingBureau} status={status.handling} />
+      <section className="rounded-xl bg-stone/60 p-4">
+        <h4 className="mb-2 text-base font-medium text-muted">Turnaround clock</h4>
+        <TurnaroundClock reading={reading} large />
+        <div className="mt-2 text-base text-muted">Notified {formatDate(claim.notifiedAt)}</div>
       </section>
 
       <dl className="grid grid-cols-2 gap-x-4 gap-y-3 text-base">
@@ -105,7 +136,7 @@ export default function HandshakePanel({ claim, now, onClose }: Props) {
         )}
       </section>
 
-      <section className="rounded-lg border border-line bg-stone/60 p-4">
+      <section className="rounded-xl border border-line bg-stone/60 p-4">
         <div className="flex items-center justify-between gap-3">
           <div>
             <div className="text-base font-semibold text-ink">Council of Bureaux</div>
@@ -121,42 +152,27 @@ export default function HandshakePanel({ claim, now, onClose }: Props) {
             {claim.escalated ? 'Escalated' : 'Clear'}
           </span>
         </div>
-        {!claim.escalated && (
-          <button
-            type="button"
-            onClick={escalate}
-            disabled={escalating}
-            className="mt-3 w-full rounded-lg border border-clay px-4 py-2 text-base font-semibold text-clay hover:bg-clay hover:text-paper focus:outline-none focus-visible:ring-2 focus-visible:ring-gold disabled:cursor-wait disabled:opacity-60"
-          >
-            {escalating ? 'Escalating...' : 'Escalate to the Council of Bureaux'}
-          </button>
-        )}
       </section>
-
-      {error && (
-        <p role="alert" className="text-base font-semibold text-clay">
-          {error}
-        </p>
-      )}
-      <button
-        type="button"
-        onClick={advance}
-        disabled={atEnd || busy}
-        className="w-full rounded-lg bg-brown px-4 py-3 text-lg font-semibold text-paper hover:bg-ink focus:outline-none focus-visible:ring-2 focus-visible:ring-gold disabled:cursor-not-allowed disabled:bg-line disabled:text-muted"
-      >
-        {atEnd ? 'Claim paid. No further stage' : busy ? 'Moving...' : `Move to next stage: ${STAGES[claim.stage + 1]}`}
-      </button>
     </aside>
   )
 }
 
-function BureauCard({ title, name, status }: { title: string; name: string; status: string }) {
+/** Shown when nothing is selected: a prompt and the corridor in its neutral state. */
+export function EmptyPanel() {
   return (
-    <div className="rounded-lg border border-line bg-stone/60 p-3">
-      <div className="text-base font-medium text-muted">{title}</div>
-      <div className="text-lg font-semibold text-ink">{name}</div>
-      <div className="mt-1 inline-block rounded-full bg-mint px-2.5 py-0.5 text-base font-semibold text-paper">{status}</div>
-    </div>
+    <aside className={PANEL_CLASS} aria-label="No claim selected">
+      <div>
+        <div className="text-base font-medium text-muted">Handshake</div>
+        <h3 className="text-2xl font-bold text-ink">Select a claim</h3>
+        <p className="mt-1 text-base text-muted">
+          Click a reference to see the two bureaux, the insurer's clock and the documents for that claim.
+        </p>
+      </div>
+      <CorridorDiagram claim={null} />
+      <p className="text-base text-muted">
+        Every claim runs between the bureau that issued the card and the bureau where the accident happened. The insurer carries the clock.
+      </p>
+    </aside>
   )
 }
 

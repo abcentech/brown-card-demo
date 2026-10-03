@@ -29,7 +29,7 @@ export default function ReviewStep({
   ]
 
   return (
-    <div className="space-y-5">
+    <div className="flex flex-1 flex-col gap-5">
       <p className="text-base text-muted">Check the details, then send.</p>
 
       <dl className="divide-y divide-line rounded-xl border border-line bg-paper">

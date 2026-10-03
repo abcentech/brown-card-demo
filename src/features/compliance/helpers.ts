@@ -1,5 +1,5 @@
 // Pure helpers for the compliance console. No React here so they can be unit-tested without jsdom.
-import type { Cause, Channel, ExceptionRow, ExceptionStatus, ReturnRow } from '../../shared/types'
+import type { Cause, Channel, ExceptionAction, ExceptionRow, ExceptionStatus, ReturnRow } from '../../shared/types'
 
 export const CHANNELS: Channel[] = ['direct', 'agent', 'broker', 'bank']
 export const CAUSES: Cause[] = ['data_error', 'late_entry', 'system_not_calling_api', 'intermediary']
@@ -10,6 +10,21 @@ export const CHANNEL_LABEL: Record<Channel, string> = {
   agent: 'Agent',
   broker: 'Broker',
   bank: 'Bank',
+}
+
+/** Plain-English phrases for the "where the gap sits" sentences. */
+export const CHANNEL_PHRASE: Record<Channel, string> = {
+  direct: 'direct sales',
+  agent: 'agents',
+  broker: 'brokers',
+  bank: 'banks',
+}
+
+export const CAUSE_PHRASE: Record<Cause, string> = {
+  data_error: 'data errors',
+  late_entry: 'late entry',
+  system_not_calling_api: 'systems not calling the API',
+  intermediary: 'intermediaries',
 }
 
 export const CAUSE_LABEL: Record<Cause, string> = {
@@ -69,19 +84,71 @@ export function sum(rows: ExceptionRow[]): number {
   return rows.reduce((a, e) => a + e.policiesAffected, 0)
 }
 
+/** The bucket holding the most open policies (first one on a tie); undefined when nothing is open. */
+export function topBucket<K extends string>(buckets: Bucket<K>[]): Bucket<K> | undefined {
+  const top = buckets.reduce<Bucket<K> | undefined>((best, b) => (!best || b.policies > best.policies ? b : best), undefined)
+  return top && top.policies > 0 ? top : undefined
+}
+
+function share<K extends string>(buckets: Bucket<K>[], b: Bucket<K>): number {
+  const total = buckets.reduce((a, x) => a + x.policies, 0)
+  return total ? Math.round((b.policies / total) * 100) : 0
+}
+
+/** "Most missing cards come through agents (41%)." */
+export function channelSentence(buckets: Bucket<Channel>[]): string {
+  const top = topBucket(buckets)
+  if (!top) return 'No open gaps by channel.'
+  return `Most missing cards come through ${CHANNEL_PHRASE[top.key]} (${share(buckets, top)}%).`
+}
+
+/** "The main cause is late entry (33%)." */
+export function causeSentence(buckets: Bucket<Cause>[]): string {
+  const top = topBucket(buckets)
+  if (!top) return 'No open gaps by cause.'
+  return `The main cause is ${CAUSE_PHRASE[top.key]} (${share(buckets, top)}%).`
+}
+
+/** One line for the session log: "Back-filled 4 batches · 189 policies". */
+export function sessionLogText(action: ExceptionAction, batches: number, policies: number): string {
+  const verb = action === 'backfill' ? 'Back-filled' : action === 'remind' ? 'Reminded' : 'Assigned'
+  return `${verb} ${fmtInt(batches)} ${batches === 1 ? 'batch' : 'batches'} · ${fmtInt(policies)} policies`
+}
+
+/** "10:42" for the session log. */
+export function clockText(d: Date): string {
+  return d.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })
+}
+
 /** The insurer with the lowest coverage (first one on a tie). */
 export function lowestCoverage(rows: ReturnRow[]): ReturnRow | undefined {
   return rows.reduce<ReturnRow | undefined>((low, r) => (!low || r.coveragePct < low.coveragePct ? r : low), undefined)
 }
 
+/** '' = every status; 'unresolved' = open, reminded and assigned (everything the presenter can still act on). */
+export type StatusFilter = ExceptionStatus | '' | 'unresolved'
+
 export interface ExceptionFilter {
   insurerId: string // '' = all
   channel: Channel | ''
   cause: Cause | ''
-  status: ExceptionStatus | ''
+  status: StatusFilter
 }
 
 export const EMPTY_FILTER: ExceptionFilter = { insurerId: '', channel: '', cause: '', status: '' }
+/** What the list opens with: only batches that can still be acted on. */
+export const DEFAULT_FILTER: ExceptionFilter = { ...EMPTY_FILTER, status: 'unresolved' }
+
+export function matchesStatus(e: ExceptionRow, status: StatusFilter): boolean {
+  if (!status) return true
+  if (status === 'unresolved') return e.status !== 'resolved'
+  return e.status === status
+}
+
+/** Resolved rows sink to the bottom; everything else keeps its order. */
+export function sortResolvedLast(rows: ExceptionRow[]): ExceptionRow[] {
+  return [...rows].sort((a, b) => Number(a.status === 'resolved') - Number(b.status === 'resolved'))
+}
 
 export function applyFilter(rows: ExceptionRow[], f: ExceptionFilter): ExceptionRow[] {
   return rows.filter(
@@ -89,7 +156,7 @@ export function applyFilter(rows: ExceptionRow[], f: ExceptionFilter): Exception
       (!f.insurerId || e.insurerId === f.insurerId) &&
       (!f.channel || e.channel === f.channel) &&
       (!f.cause || e.cause === f.cause) &&
-      (!f.status || e.status === f.status),
+      matchesStatus(e, f.status),
   )
 }
 

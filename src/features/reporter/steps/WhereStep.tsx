@@ -45,7 +45,7 @@ export default function WhereStep({
   const canContinue = !!draft.crossing && !!draft.country
 
   return (
-    <div className="space-y-5">
+    <div className="flex flex-1 flex-col gap-5">
       <Field label="Border crossing" hint="Where the vehicle crossed, or the nearest one.">
         <OptionGrid<Crossing>
           label="Border crossing"

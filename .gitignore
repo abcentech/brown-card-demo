@@ -5,3 +5,7 @@ dist
 # Playwright
 test-results/
 playwright-report/
+
+# Offline package (scripts/package-offline.*)
+brown-card-demo-offline-*.zip
+.offline-stage/

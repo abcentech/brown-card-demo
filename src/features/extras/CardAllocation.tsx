@@ -3,8 +3,9 @@ import { platform } from '../../platform'
 import { useDemo } from '../../state/store'
 import { INSURERS } from '../../shared/seed'
 import type { IssuedPolicy, PolicyInput } from '../../shared/types'
+import { BrownCard, GhostCard, coverLabel, insurerName } from './BrownCard'
 
-// Illustrative placeholder values only. No real people or vehicles.
+// Illustrative placeholder values only. No real people or vehicles. Pre-filled so one click issues a card.
 const DEFAULTS: PolicyInput = {
   holder: 'Sample holder',
   vehicle: 'Sample vehicle',
@@ -13,14 +14,16 @@ const DEFAULTS: PolicyInput = {
   termMonths: 12,
 }
 
-const coverLabel = (c: PolicyInput['cover']) => (c === 'comprehensive' ? 'Comprehensive' : 'Third party')
-const insurerName = (id: string) => INSURERS.find((i) => i.id === id)?.name ?? `Insurer ${id}`
-
-const field = 'w-full rounded-md border border-line bg-paper px-3 py-2.5 text-base text-ink focus:outline-none focus:ring-2 focus:ring-brown'
-const label = 'block text-base font-medium text-ink'
+const field =
+  'min-h-[44px] w-full rounded-xl border border-line bg-paper px-3 py-2.5 text-base text-ink shadow-[inset_0_1px_2px_rgba(18,38,30,0.06)] focus:border-brown focus:outline-none focus:ring-2 focus:ring-brown/40'
+const label = 'mb-1 block text-base font-medium text-ink'
+const toggle = (on: boolean) =>
+  `flex min-h-[44px] flex-1 cursor-pointer items-center justify-center rounded-xl border px-3 py-2 text-center text-base transition-colors ${
+    on ? 'border-ink bg-ink text-paper shadow-[0_6px_14px_-8px_rgba(18,38,30,0.6)]' : 'border-line bg-paper text-ink hover:border-ink'
+  }`
 
 /** Demo step 1: the operators' platform issues a motor policy and allocates a Brown Card number. */
-export default function CardAllocation() {
+export default function CardAllocation({ onCheckCard }: { onCheckCard?: (card: string) => void }) {
   const issued = useDemo((s) => s.issued)
   const [form, setForm] = useState<PolicyInput>(DEFAULTS)
   const [busy, setBusy] = useState(false)
@@ -52,18 +55,39 @@ export default function CardAllocation() {
   }
 
   return (
-    <section aria-labelledby="alloc-title" data-testid="card-allocation" className="rounded-xl border border-line bg-paper p-5 shadow-sm">
+    <section
+      aria-labelledby="alloc-title"
+      data-testid="card-allocation"
+      className="rounded-xl border border-line bg-paper p-5 shadow-[0_18px_40px_-28px_rgba(18,38,30,0.45)]"
+    >
       <div className="mb-4 flex flex-wrap items-baseline justify-between gap-2">
-        <h3 id="alloc-title" className="text-xl font-semibold">
-          Issue a policy, allocate a card
-        </h3>
-        <span className="rounded-full border border-brown px-3 py-0.5 text-base font-medium text-brown">
-          Stand-in for the operators' platform
-        </span>
+        <h3 id="alloc-title" className="text-xl font-semibold">Issue a policy, allocate a card</h3>
+        <span className="rounded-full border border-brown px-3 py-0.5 text-base font-medium text-brown">Stand-in for the operators' platform</span>
       </div>
 
-      <div className="grid gap-6 lg:grid-cols-2">
-        <form onSubmit={submit} className="space-y-4" aria-label="New motor policy">
+      {/* Hero: the card itself */}
+      <div aria-live="polite" data-testid="allocated-card" className="mx-auto w-full max-w-[560px]">
+        {last ? <BrownCard key={last.cardNumber} policy={last} /> : <GhostCard />}
+        {last && (
+          <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
+            <p className="text-base text-mint">
+              <span className="font-semibold">Recorded on the card register.</span> The short code will now find it.
+            </p>
+            {onCheckCard && (
+              <button
+                type="button"
+                onClick={() => onCheckCard(last.cardNumber)}
+                className="min-h-[44px] rounded-xl border border-mint bg-mint/10 px-4 py-2 text-base font-semibold text-mint transition-colors hover:bg-mint hover:text-paper"
+              >
+                Check this card by short code
+              </button>
+            )}
+          </div>
+        )}
+      </div>
+
+      <form onSubmit={submit} className="mt-5 space-y-4" aria-label="New motor policy">
+        <div className="grid gap-4 sm:grid-cols-2">
           <div>
             <label htmlFor="holder" className={label}>Policyholder</label>
             <input id="holder" className={field} value={form.holder} onChange={(e) => update('holder', e.target.value)} autoComplete="off" />
@@ -72,6 +96,8 @@ export default function CardAllocation() {
             <label htmlFor="vehicle" className={label}>Vehicle</label>
             <input id="vehicle" className={field} value={form.vehicle} onChange={(e) => update('vehicle', e.target.value)} autoComplete="off" />
           </div>
+        </div>
+        <div className="grid gap-4 sm:grid-cols-[1fr_1fr_1fr]">
           <div>
             <label htmlFor="insurer" className={label}>Insurer</label>
             <select id="insurer" className={field} value={form.insurerId} onChange={(e) => update('insurerId', e.target.value)}>
@@ -80,76 +106,53 @@ export default function CardAllocation() {
               ))}
             </select>
           </div>
-          <div className="grid gap-4 sm:grid-cols-2">
-            <fieldset>
-              <legend className={label}>Cover</legend>
-              <div className="mt-1 flex gap-2">
-                {(['third_party', 'comprehensive'] as const).map((c) => (
-                  <label key={c} className={`flex-1 cursor-pointer rounded-md border px-3 py-2.5 text-center text-base ${form.cover === c ? 'border-ink bg-ink text-paper' : 'border-line'}`}>
-                    <input type="radio" name="cover" value={c} className="sr-only" checked={form.cover === c} onChange={() => update('cover', c)} />
-                    {coverLabel(c)}
-                  </label>
-                ))}
-              </div>
-            </fieldset>
-            <fieldset>
-              <legend className={label}>Term</legend>
-              <div className="mt-1 flex gap-2">
-                {([6, 12] as const).map((t) => (
-                  <label key={t} className={`flex-1 cursor-pointer rounded-md border px-3 py-2.5 text-center text-base ${form.termMonths === t ? 'border-ink bg-ink text-paper' : 'border-line'}`}>
-                    <input type="radio" name="term" value={t} className="sr-only" checked={form.termMonths === t} onChange={() => update('termMonths', t)} />
-                    {t} months
-                  </label>
-                ))}
-              </div>
-            </fieldset>
-          </div>
-          {error && <p role="alert" className="text-base text-clay">{error}</p>}
-          <button
-            type="submit"
-            disabled={busy}
-            className="w-full rounded-md bg-brown px-4 py-3 text-lg font-semibold text-paper hover:bg-ink disabled:opacity-60"
-          >
-            {busy ? 'Allocating card…' : 'Issue policy and allocate card'}
-          </button>
-        </form>
-
-        <div className="space-y-4">
-          <div className="rounded-lg border border-line bg-stone p-4" aria-live="polite" data-testid="allocated-card">
-            <div className="text-base font-medium uppercase tracking-wide text-muted">Allocated Brown Card number</div>
-            {last ? (
-              <>
-                <div className="mt-1 break-all font-mono text-3xl font-bold text-ink md:text-4xl">{last.cardNumber}</div>
-                <dl className="mt-3 grid grid-cols-[auto_1fr] gap-x-4 gap-y-1 text-base">
-                  <dt className="text-muted">Holder</dt><dd>{last.holder}</dd>
-                  <dt className="text-muted">Vehicle</dt><dd>{last.vehicle}</dd>
-                  <dt className="text-muted">Insurer</dt><dd>{insurerName(last.insurerId)}</dd>
-                  <dt className="text-muted">Cover</dt><dd>{coverLabel(last.cover)}, {last.termMonths} months</dd>
-                  <dt className="text-muted">Valid to</dt><dd>{last.validTo}</dd>
-                </dl>
-                <p className="mt-3 text-base text-mint">Recorded on the card register. The short code below will now find it.</p>
-              </>
-            ) : (
-              <div className="mt-1 font-mono text-3xl text-muted">NG-26-····-····-·</div>
-            )}
-          </div>
-
-          <div>
-            <h4 className="text-base font-semibold">Issued this session ({issued.length})</h4>
-            {issued.length === 0 ? (
-              <p className="text-base text-muted">None yet. Issue a policy to allocate the first card.</p>
-            ) : (
-              <ul className="mt-2 divide-y divide-line rounded-lg border border-line text-base">
-                {issued.map((p) => (
-                  <li key={p.cardNumber} className="flex flex-wrap items-center justify-between gap-2 px-3 py-2">
-                    <span className="font-mono font-semibold">{p.cardNumber}</span>
-                    <span className="text-muted">{p.holder} · {insurerName(p.insurerId)} · {coverLabel(p.cover)}</span>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </div>
+          <fieldset>
+            <legend className={label}>Cover</legend>
+            <div className="flex gap-2">
+              {(['third_party', 'comprehensive'] as const).map((c) => (
+                <label key={c} className={toggle(form.cover === c)}>
+                  <input type="radio" name="cover" value={c} className="sr-only" checked={form.cover === c} onChange={() => update('cover', c)} />
+                  {coverLabel(c)}
+                </label>
+              ))}
+            </div>
+          </fieldset>
+          <fieldset>
+            <legend className={label}>Term</legend>
+            <div className="flex gap-2">
+              {([6, 12] as const).map((t) => (
+                <label key={t} className={toggle(form.termMonths === t)}>
+                  <input type="radio" name="term" value={t} className="sr-only" checked={form.termMonths === t} onChange={() => update('termMonths', t)} />
+                  {t} months
+                </label>
+              ))}
+            </div>
+          </fieldset>
         </div>
+        {error && <p role="alert" className="text-base text-clay">{error}</p>}
+        <button
+          type="submit"
+          disabled={busy}
+          className="min-h-[52px] w-full rounded-xl bg-brown px-4 py-3 text-lg font-semibold text-paper shadow-[0_12px_24px_-12px_rgba(122,70,32,0.8)] transition-colors hover:bg-ink disabled:opacity-60"
+        >
+          {busy ? 'Allocating card…' : 'Issue policy and allocate card'}
+        </button>
+      </form>
+
+      <div className="mt-5">
+        <h4 className="text-base font-semibold">Issued this session ({issued.length})</h4>
+        {issued.length === 0 ? (
+          <p className="text-base text-muted">None yet. Issue a policy to allocate the first card.</p>
+        ) : (
+          <ul className="mt-2 divide-y divide-line overflow-hidden rounded-xl border border-line text-base">
+            {issued.map((p) => (
+              <li key={p.cardNumber} className="flex flex-wrap items-center justify-between gap-2 px-3 py-2">
+                <span className="font-mono font-semibold">{p.cardNumber}</span>
+                <span className="text-muted">{p.holder} · {insurerName(p.insurerId)} · {coverLabel(p.cover)}</span>
+              </li>
+            ))}
+          </ul>
+        )}
       </div>
     </section>
   )

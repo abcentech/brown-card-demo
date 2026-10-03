@@ -1,4 +1,4 @@
-import { useRef, useState, type FormEvent } from 'react'
+import { useEffect, useRef, useState, type FormEvent } from 'react'
 import { platform } from '../../platform'
 import { useDemo } from '../../state/store'
 import { SAMPLE_BAD_CHECK, SAMPLE_COVERED, SAMPLE_LAPSED, SAMPLE_UNKNOWN } from '../../shared/seed'
@@ -17,6 +17,7 @@ const SAMPLE_CHIPS: { label: string; card: string }[] = [
 ]
 
 const KEYS = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '*', '0', '#']
+const ENTER_PROMPT = 'Brown Card check\n\nEnter the card number\nas printed on the card:'
 
 /** Render the verify result the way a USSD screen would: short lines, plain text. */
 export function ussdText(r: VerifyResult): string {
@@ -36,7 +37,34 @@ export function ussdText(r: VerifyResult): string {
   return lines.join('\n')
 }
 
-export default function ShortCodeSimulator() {
+const reducedMotion = () =>
+  typeof window !== 'undefined' && typeof window.matchMedia === 'function' && window.matchMedia('(prefers-reduced-motion: reduce)').matches
+
+/** Reveals `text` one line every 40 ms when `animate` is true. The finished text is always identical to `text`. */
+function useTypewriter(text: string, animate: boolean): { shown: string; typing: boolean } {
+  const [count, setCount] = useState(Number.POSITIVE_INFINITY)
+  useEffect(() => {
+    if (!animate || reducedMotion()) {
+      setCount(Number.POSITIVE_INFINITY)
+      return
+    }
+    const total = text.split('\n').length
+    setCount(1)
+    if (total <= 1) return
+    const id = window.setInterval(() => {
+      setCount((c) => {
+        if (c + 1 >= total) window.clearInterval(id)
+        return c + 1
+      })
+    }, 40)
+    return () => window.clearInterval(id)
+  }, [text, animate])
+  const lines = text.split('\n')
+  const done = count >= lines.length
+  return { shown: done ? text : lines.slice(0, count).join('\n'), typing: !done }
+}
+
+export default function ShortCodeSimulator({ prefill }: { prefill?: { card: string; nonce: number } }) {
   const issued = useDemo((s) => s.issued)
   const [phase, setPhase] = useState<Phase>('dial')
   const [dialled, setDialled] = useState('')
@@ -44,8 +72,30 @@ export default function ShortCodeSimulator() {
   const [screen, setScreen] = useState('')
   const [lastStatus, setLastStatus] = useState<VerifyResult['status'] | null>(null)
   const sequence = useRef(0)
+  const sectionRef = useRef<HTMLElement>(null)
+  const inputRef = useRef<HTMLInputElement>(null)
 
   const chips = [...issued.map((p) => ({ label: 'Issued just now', card: p.cardNumber })), ...SAMPLE_CHIPS]
+
+  const openEntry = (value: string) => {
+    sequence.current += 1
+    setDialled(SHORT_CODE)
+    setLastStatus(null)
+    setCard(value)
+    setPhase('enter')
+    setScreen(ENTER_PROMPT)
+  }
+
+  // "Check this card by short code" from the allocation panel: scroll here and pre-fill the number.
+  const seenNonce = useRef(prefill?.nonce ?? 0)
+  useEffect(() => {
+    if (!prefill || prefill.nonce === seenNonce.current) return
+    seenNonce.current = prefill.nonce
+    openEntry(prefill.card)
+    sectionRef.current?.scrollIntoView({ behavior: reducedMotion() ? 'auto' : 'smooth', block: 'start' })
+    window.setTimeout(() => inputRef.current?.focus({ preventScroll: true }), 350)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [prefill])
 
   const press = (k: string) => {
     if (phase !== 'dial') return
@@ -55,7 +105,7 @@ export default function ShortCodeSimulator() {
   const call = () => {
     if (dialled === SHORT_CODE) {
       setPhase('enter')
-      setScreen('Brown Card check\n\nEnter the card number\nas printed on the card:\n\n(Demo short code)')
+      setScreen(`${ENTER_PROMPT}\n\n(Demo short code)`)
     } else {
       setScreen(`${dialled || '(nothing dialled)'}\n\nUnknown short code.\nDial ${SHORT_CODE} to check a card.`)
     }
@@ -94,15 +144,22 @@ export default function ShortCodeSimulator() {
     setPhase('enter')
     setCard('')
     setLastStatus(null)
-    setScreen('Brown Card check\n\nEnter the card number\nas printed on the card:')
+    setScreen(ENTER_PROMPT)
   }
 
-  // Plain paper text on the dark screen for projector contrast; the outcome colours the frame, not the words.
-  const tone =
-    lastStatus === 'covered' ? 'ring-4 ring-mint' : lastStatus === 'lapsed' ? 'ring-4 ring-gold' : lastStatus ? 'ring-4 ring-clay' : ''
+  const fullText =
+    phase === 'dial' ? `${screen || `Dial ${SHORT_CODE}\nthen press Call`}${dialled ? `\n\n> ${dialled}` : ''}` : screen
+  const { shown, typing } = useTypewriter(fullText, phase === 'result' || phase === 'enter')
+
+  const softKey = 'bc-key h-12 min-h-[44px] rounded-xl text-base font-semibold'
 
   return (
-    <section aria-labelledby="ussd-title" data-testid="short-code-simulator" className="rounded-xl border border-line bg-paper p-5 shadow-sm">
+    <section
+      ref={sectionRef}
+      aria-labelledby="ussd-title"
+      data-testid="short-code-simulator"
+      className="scroll-mt-4 rounded-xl border border-line bg-paper p-5 shadow-[0_18px_40px_-28px_rgba(18,38,30,0.45)]"
+    >
       <div className="mb-4 flex flex-wrap items-baseline justify-between gap-2">
         <h3 id="ussd-title" className="text-xl font-semibold">Check a card by short code</h3>
         <span className="rounded-full border border-brown px-3 py-0.5 text-base font-medium text-brown">
@@ -110,18 +167,17 @@ export default function ShortCodeSimulator() {
         </span>
       </div>
 
-      <div className="grid gap-6 lg:grid-cols-[minmax(0,320px)_1fr]">
+      <div className="grid gap-6 xl:grid-cols-[minmax(0,320px)_1fr]">
         {/* Phone (pure CSS) */}
-        <div className="mx-auto w-full max-w-[320px] rounded-[2rem] border-[8px] border-ink bg-ink2 p-3 shadow-xl" aria-label="Feature phone">
+        <div className="bc-phone mx-auto w-full max-w-[320px] rounded-[2rem] border-[8px] border-ink bg-ink2 p-3" aria-label="Feature phone">
           <div className="mx-auto mb-2 h-1.5 w-16 rounded-full bg-ink" aria-hidden />
           <pre
             data-testid="ussd-screen"
             data-status={lastStatus ?? undefined}
             aria-live="polite"
-            className={`min-h-[190px] whitespace-pre-wrap break-words rounded-lg bg-ink p-3 font-mono text-base leading-snug text-paper ${tone}`}
+            className="bc-screen min-h-[190px] whitespace-pre-wrap break-words rounded-xl p-3 font-mono text-base leading-snug text-paper"
           >
-            {phase === 'dial' ? (screen || `Dial ${SHORT_CODE}\nthen press Call`) : screen}
-            {phase === 'dial' && dialled && `\n\n> ${dialled}`}
+            <span className={typing ? 'bc-typing' : undefined}>{shown}</span>
           </pre>
 
           {phase === 'dial' ? (
@@ -133,21 +189,24 @@ export default function ShortCodeSimulator() {
                     type="button"
                     onClick={() => press(k)}
                     aria-label={`Key ${k}`}
-                    className="h-12 min-h-[44px] rounded-lg bg-stone text-xl font-semibold text-ink active:bg-line"
+                    className="bc-key h-12 min-h-[44px] rounded-xl bg-stone text-xl font-semibold text-ink"
                   >
                     {k}
                   </button>
                 ))}
               </div>
               <div className="mt-2 grid grid-cols-3 gap-2">
-                <button type="button" onClick={() => setDialled(SHORT_CODE)} className="h-12 rounded-lg border border-line text-base text-paper">
+                <button type="button" onClick={() => setDialled(SHORT_CODE)} className={`${softKey} border border-line text-paper`}>
                   Fill {SHORT_CODE}
                 </button>
-                <button type="button" onClick={call} className="h-12 rounded-lg bg-mint text-lg font-semibold text-paper">
+                <button type="button" onClick={call} className={`${softKey} bg-mint text-lg text-paper`}>
                   Call
                 </button>
-                <button type="button" onClick={() => setDialled((d) => d.slice(0, -1))} aria-label="Delete" className="h-12 rounded-lg border border-line text-lg text-paper">
-                  ⌫
+                <button type="button" onClick={() => setDialled((d) => d.slice(0, -1))} aria-label="Delete" className={`${softKey} border border-line text-lg text-paper`}>
+                  <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden className="mx-auto">
+                    <path d="M21 5H9l-6 7 6 7h12a1 1 0 0 0 1-1V6a1 1 0 0 0-1-1z" />
+                    <path d="m18 9-6 6M12 9l6 6" />
+                  </svg>
                 </button>
               </div>
             </>
@@ -155,6 +214,7 @@ export default function ShortCodeSimulator() {
             <form onSubmit={send} className="mt-3 space-y-2">
               <label htmlFor="ussd-card" className="sr-only">Card number</label>
               <input
+                ref={inputRef}
                 id="ussd-card"
                 value={card}
                 onChange={(e) => setCard(e.target.value.toUpperCase())}
@@ -162,19 +222,24 @@ export default function ShortCodeSimulator() {
                 autoComplete="off"
                 spellCheck={false}
                 disabled={phase === 'checking'}
-                className="h-12 w-full rounded-lg border border-line bg-paper px-3 font-mono text-base uppercase text-ink"
+                className="h-12 w-full rounded-xl border border-line bg-paper px-3 font-mono text-base uppercase text-ink focus:border-mint focus:outline-none focus:ring-2 focus:ring-mint/40"
               />
               <div className="grid grid-cols-2 gap-2">
                 {phase === 'result' ? (
-                  <button type="button" onClick={back} className="h-12 rounded-lg border border-line text-base text-paper">
+                  <button type="button" onClick={back} className={`${softKey} border border-line text-paper`}>
                     0 Back
                   </button>
                 ) : (
-                  <button type="submit" aria-label="Verify card" disabled={phase === 'checking' || !card.trim()} className="h-12 rounded-lg bg-mint text-lg font-semibold text-paper disabled:opacity-50">
+                  <button
+                    type="submit"
+                    aria-label="Verify card"
+                    disabled={phase === 'checking' || !card.trim()}
+                    className={`${softKey} bg-mint text-lg text-paper disabled:opacity-50`}
+                  >
                     Send
                   </button>
                 )}
-                <button type="button" onClick={hangUp} className="h-12 rounded-lg bg-clay text-lg font-semibold text-paper">
+                <button type="button" onClick={hangUp} className={`${softKey} bg-clay text-lg text-paper`}>
                   End
                 </button>
               </div>
@@ -198,17 +263,10 @@ export default function ShortCodeSimulator() {
                   type="button"
                   aria-label={c.label}
                   disabled={phase === 'checking'}
-                  onClick={() => {
-                    if (phase === 'dial') {
-                      setDialled(SHORT_CODE)
-                      setPhase('enter')
-                    }
-                    if (phase === 'result') setLastStatus(null)
-                    setCard(c.card)
-                    setPhase('enter')
-                    setScreen('Brown Card check\n\nEnter the card number\nas printed on the card:')
-                  }}
-                  className={`min-h-[44px] rounded-full border px-4 py-2 text-left leading-tight ${c.label === 'Issued just now' ? 'border-mint bg-mint/10' : 'border-line bg-stone'} hover:border-ink`}
+                  onClick={() => openEntry(c.card)}
+                  className={`min-h-[44px] rounded-xl border px-4 py-2 text-left leading-tight transition-colors ${
+                    c.label === 'Issued just now' ? 'border-mint bg-mint/10' : 'border-line bg-stone'
+                  } hover:border-ink`}
                 >
                   <span className="block text-base text-muted">{c.label}</span>
                   <span className="font-mono font-semibold">{c.card}</span>

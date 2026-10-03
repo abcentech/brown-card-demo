@@ -56,6 +56,20 @@ export function toIncidentInput(d: Draft): IncidentInput {
   }
 }
 
+/**
+ * Formats what the user types into NG-26-XXXX-XXXX-X: uppercase, hex only, hyphens added as they go.
+ * A pasted full number comes back unchanged. The prefix can be typed or left out.
+ */
+export function formatCardInput(raw: string): string {
+  const s = raw.toUpperCase().replace(/[^0-9A-Z]/g, '')
+  if (s.length <= 4 && 'NG26'.startsWith(s)) return s.length > 2 ? `NG-${s.slice(2)}` : s
+  const body = (s.startsWith('NG26') ? s.slice(4) : s).replace(/[^0-9A-F]/g, '').slice(0, 9)
+  let out = `NG-26-${body.slice(0, 4)}`
+  if (body.length > 4) out += `-${body.slice(4, 8)}`
+  if (body.length > 8 && /\d/.test(body[8])) out += `-${body[8]}`
+  return out
+}
+
 /** Plain-English label and theme colouring for each verification outcome. */
 export const STATUS_META: Record<VerifyStatus, { label: string; tone: 'mint' | 'gold' | 'clay' }> = {
   covered: { label: 'Covered', tone: 'mint' },

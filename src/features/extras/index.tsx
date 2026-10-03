@@ -4,14 +4,16 @@ import { useDemo } from '../../state/store'
 import CardAllocation from './CardAllocation'
 import ShortCodeSimulator from './ShortCodeSimulator'
 import { downloadReturnCsv } from './returnCsv'
+import './extras.css'
 
 export { buildReturnCsv, downloadReturnCsv } from './returnCsv'
 export { ussdText, SHORT_CODE } from './ShortCodeSimulator'
 
 export default function ExtrasScreen() {
   const [csvState, setCsvState] = useState<'idle' | 'busy' | 'done' | 'error'>('idle')
+  const [prefill, setPrefill] = useState<{ card: string; nonce: number } | undefined>(undefined)
   const resetKey = useDemo(s => s.claims.filter(c => c.source === 'seed').map(c => c.notifiedAt).join('|'))
-  useEffect(() => { setCsvState('idle') }, [resetKey])
+  useEffect(() => { setCsvState('idle'); setPrefill(undefined) }, [resetKey])
 
   const download = async () => {
     setCsvState('busy')
@@ -24,8 +26,8 @@ export default function ExtrasScreen() {
   }
 
   return (
-    <div className="mx-auto max-w-6xl space-y-5 text-base" data-testid="extras-screen">
-      <div className="rounded-md border border-gold bg-gold/15 px-4 py-2 text-base font-medium text-ink" role="note">
+    <div className="mx-auto max-w-[1320px] space-y-5 text-base" data-testid="extras-screen">
+      <div className="rounded-xl border border-gold bg-gold/15 px-4 py-2 text-base font-medium text-ink" role="note">
         Illustrative data. This screen stands in for the operators' platform; nothing here is a live system.
       </div>
 
@@ -38,7 +40,7 @@ export default function ExtrasScreen() {
           type="button"
           onClick={download}
           disabled={csvState === 'busy'}
-          className="min-h-[44px] rounded-md border border-line bg-paper px-4 py-2 text-base font-medium text-ink hover:border-ink disabled:opacity-60"
+          className="min-h-[44px] rounded-xl border border-line bg-paper px-4 py-2 text-base font-medium text-ink transition-colors hover:border-ink disabled:opacity-60"
         >
           {csvState === 'busy' ? 'Preparing…' : 'Download quarterly return'}
         </button>
@@ -50,8 +52,15 @@ export default function ExtrasScreen() {
         <p className="text-base text-clay" role="alert">The return could not be prepared. Try again.</p>
       )}
 
-      <CardAllocation key={`allocation-${resetKey}`} />
-      <ShortCodeSimulator key={`short-code-${resetKey}`} />
+      {/* Two columns on wide screens: the card and its form lead, the phone follows. */}
+      <div className="grid gap-5 lg:grid-cols-12 lg:items-start">
+        <div className="min-w-0 lg:col-span-7">
+          <CardAllocation key={`allocation-${resetKey}`} onCheckCard={(card) => setPrefill((p) => ({ card, nonce: (p?.nonce ?? 0) + 1 }))} />
+        </div>
+        <div className="min-w-0 lg:col-span-5">
+          <ShortCodeSimulator key={`short-code-${resetKey}`} prefill={prefill} />
+        </div>
+      </div>
     </div>
   )
 }

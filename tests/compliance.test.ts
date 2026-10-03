@@ -2,8 +2,8 @@ import { describe, expect, it } from 'vitest'
 import { INSURERS, UNCARDED_TOTAL, seedExceptions } from '../src/shared/seed'
 import { returnRows } from '../src/shared/selectors'
 import {
-  EMPTY_FILTER, PAGE_SIZE, applyFilter, assigneeFor, byCause, byChannel, confirmationText, groupByInsurer,
-  lowestCoverage, returnTotals, scalePosition,
+  DEFAULT_FILTER, EMPTY_FILTER, PAGE_SIZE, applyFilter, assigneeFor, byCause, byChannel, causeSentence, channelSentence,
+  confirmationText, groupByInsurer, lowestCoverage, returnTotals, scalePosition, sessionLogText, sortResolvedLast, topBucket,
 } from '../src/features/compliance/helpers'
 
 describe('compliance helpers', () => {
@@ -30,6 +30,38 @@ describe('compliance helpers', () => {
     expect(f.length).toBeGreaterThan(0)
     expect(f.every((e) => e.insurerId === 'A' && e.channel === 'agent')).toBe(true)
     expect(applyFilter(exceptions, { ...EMPTY_FILTER, status: 'resolved' })).toHaveLength(0)
+  })
+
+  it('opens on batches still to resolve and keeps reminded and assigned rows in that view', () => {
+    const mixed = exceptions.map((e, i) => ({ ...e, status: (['open', 'reminded', 'assigned', 'resolved'] as const)[i % 4] }))
+    const shown = applyFilter(mixed, DEFAULT_FILTER)
+    expect(shown.every((e) => e.status !== 'resolved')).toBe(true)
+    expect(shown.some((e) => e.status === 'reminded')).toBe(true)
+    expect(shown.some((e) => e.status === 'assigned')).toBe(true)
+    expect(applyFilter(mixed, { ...EMPTY_FILTER, status: '' })).toHaveLength(mixed.length)
+  })
+
+  it('sorts resolved rows last without reordering the rest', () => {
+    const mixed = exceptions.slice(0, 6).map((e, i) => ({ ...e, status: i % 2 ? ('resolved' as const) : ('open' as const) }))
+    const sorted = sortResolvedLast(mixed)
+    expect(sorted.slice(0, 3).map((e) => e.status)).toEqual(['open', 'open', 'open'])
+    expect(sorted.slice(0, 3).map((e) => e.id)).toEqual(['EX-001', 'EX-003', 'EX-005'])
+    expect(sorted.slice(3).every((e) => e.status === 'resolved')).toBe(true)
+  })
+
+  it('writes a plain sentence about where the gap sits', () => {
+    const ch = byChannel(exceptions)
+    const top = topBucket(ch)!
+    expect(channelSentence(ch)).toMatch(/^Most missing cards come through (direct sales|agents|brokers|banks) \(\d+%\)\.$/)
+    expect(ch.every((b) => b.policies <= top.policies)).toBe(true)
+    expect(causeSentence(byCause(exceptions))).toMatch(/^The main cause is .+ \(\d+%\)\.$/)
+    expect(channelSentence(byChannel(exceptions.map((e) => ({ ...e, status: 'resolved' as const }))))).toBe('No open gaps by channel.')
+  })
+
+  it('writes the session log line', () => {
+    expect(sessionLogText('backfill', 4, 189)).toBe('Back-filled 4 batches · 189 policies')
+    expect(sessionLogText('remind', 1, 40)).toBe('Reminded 1 batch · 40 policies')
+    expect(sessionLogText('assign', 2, 1240)).toBe('Assigned 2 batches · 1,240 policies')
   })
 
   it('finds the lowest coverage insurer', () => {

@@ -12,7 +12,8 @@ import CardStep from './steps/CardStep'
 import WhereStep from './steps/WhereStep'
 import WhatStep from './steps/WhatStep'
 import ReviewStep from './steps/ReviewStep'
-import { QueuedScreen, ResultScreen } from './steps/Outcome'
+import { QueuedScreen, ResultScreen, SendingScreen } from './steps/Outcome'
+import './reporter.css'
 
 type Phase =
   | { kind: 'form'; step: StepIndex }
@@ -45,6 +46,9 @@ export default function ReporterScreen() {
   const draftRef = useRef(draft)
   draftRef.current = draft
   const topRef = useRef<HTMLDivElement>(null)
+  // Which way the next step slides in: forward from the right, back from the left.
+  const lastStep = useRef<StepIndex>(0)
+  const direction = useRef<'fwd' | 'back'>('fwd')
 
   // "Reset demo" re-seeds the store with fresh timestamps; use that as a signal to clear this screen.
   const resetKey = useDemo((s) => s.claims.find((c) => c.source === 'seed')?.notifiedAt ?? '')
@@ -56,6 +60,8 @@ export default function ReporterScreen() {
 
   const restart = useCallback(() => {
     setDraft(emptyDraft())
+    direction.current = 'back'
+    lastStep.current = 0
     setPhase({ kind: 'form', step: 0 })
     setFlushError('')
     setResetNotice('')
@@ -144,8 +150,13 @@ export default function ReporterScreen() {
     }
   }
 
-  const go = (step: StepIndex) => setPhase({ kind: 'form', step })
+  const go = (step: StepIndex) => {
+    direction.current = step >= lastStep.current ? 'fwd' : 'back'
+    lastStep.current = step
+    setPhase({ kind: 'form', step })
+  }
   const standalone = isStandalone()
+  const slide = direction.current === 'fwd' ? 'rp-step-fwd' : 'rp-step-back'
 
   return (
     <div className={`flex min-h-full flex-col bg-paper text-base text-ink ${standalone ? 'min-h-screen' : ''}`}>
@@ -182,11 +193,11 @@ export default function ReporterScreen() {
           </div>
         )}
 
-        <main className="flex-1 space-y-5 px-4 py-4">
+        <main className="flex flex-1 flex-col gap-5 px-4 pt-4">
           {phase.kind === 'form' && (
             <>
               <Progress step={phase.step} />
-              <div key={`${formKey}-${phase.step}`}>
+              <div key={`${formKey}-${phase.step}`} className={`flex flex-1 flex-col ${slide}`}>
                 {phase.step === 0 && (
                   <CardStep
                     cardNumber={draft.cardNumber}
@@ -206,13 +217,17 @@ export default function ReporterScreen() {
           {phase.kind === 'sending' && (
             <>
               <Progress step={3} />
-              <ReviewStep draft={draft} online={online} busy onEdit={() => undefined} onBack={() => undefined} onSubmit={() => undefined} />
+              <SendingScreen />
             </>
           )}
           {phase.kind === 'queued' && (
             <QueuedScreen item={phase.item} online={online} sending={flushing} error={flushError} onRetry={() => void flush()} onRestart={restart} />
           )}
-          {phase.kind === 'done' && <ResultScreen input={phase.input} result={phase.result} insurerId={phase.insurerId} onRestart={restart} />}
+          {phase.kind === 'done' && (
+            <div className="rp-step-fwd flex flex-1 flex-col">
+              <ResultScreen input={phase.input} result={phase.result} insurerId={phase.insurerId} onRestart={restart} />
+            </div>
+          )}
         </main>
       </div>
     </div>

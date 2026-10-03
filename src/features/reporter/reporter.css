@@ -1,0 +1,39 @@
+/* Reporter lane motion: step slides, progress fill, the sending bar and the drawn checkmark. No library. */
+
+@keyframes rp-slide-fwd { from { transform: translateX(18px); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+@keyframes rp-slide-back { from { transform: translateX(-18px); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+.rp-step-fwd { animation: rp-slide-fwd 200ms cubic-bezier(0.2, 0.8, 0.2, 1) both; }
+.rp-step-back { animation: rp-slide-back 200ms cubic-bezier(0.2, 0.8, 0.2, 1) both; }
+
+.rp-progress { transition: width 320ms cubic-bezier(0.2, 0.8, 0.2, 1); }
+
+/* The bottom action bar sits on the phone's bottom edge; a soft fade lifts it off the content behind. */
+.rp-actions {
+  background: color-mix(in srgb, var(--color-paper) 94%, transparent);
+  box-shadow: 0 -12px 20px -16px color-mix(in srgb, var(--color-ink) 45%, transparent);
+  backdrop-filter: blur(6px);
+}
+.rp-primary { box-shadow: 0 10px 20px -12px color-mix(in srgb, var(--color-ink) 75%, transparent); }
+
+/* Sending: the bar fills to just short of full in about a second; the three lines fade in one after another. */
+@keyframes rp-fill { 0% { width: 4%; } 70% { width: 78%; } 100% { width: 94%; } }
+.rp-sending-bar { animation: rp-fill 1100ms cubic-bezier(0.2, 0.7, 0.3, 1) both; }
+@keyframes rp-fade-up { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: translateY(0); } }
+.rp-fade-up { animation: rp-fade-up 240ms ease-out both; }
+
+/* Success: the circle draws, then the tick. */
+.rp-check-circle { stroke-dasharray: 160; stroke-dashoffset: 160; animation: rp-draw 500ms ease-out forwards; }
+.rp-check-mark { stroke-dasharray: 48; stroke-dashoffset: 48; animation: rp-draw 350ms ease-out 420ms forwards; }
+@keyframes rp-draw { to { stroke-dashoffset: 0; } }
+@keyframes rp-pop { 0% { transform: scale(0.9); } 60% { transform: scale(1.04); } 100% { transform: scale(1); } }
+.rp-pop { animation: rp-pop 500ms cubic-bezier(0.2, 0.8, 0.2, 1) both; }
+
+/* The SMS bubble. */
+.rp-bubble { box-shadow: 0 6px 14px -10px color-mix(in srgb, var(--color-ink) 60%, transparent); }
+
+@media (prefers-reduced-motion: reduce) {
+  .rp-step-fwd, .rp-step-back, .rp-fade-up, .rp-pop { animation: none; }
+  .rp-progress { transition: none; }
+  .rp-sending-bar { animation: none; width: 60%; }
+  .rp-check-circle, .rp-check-mark { animation: none; stroke-dashoffset: 0; }
+}

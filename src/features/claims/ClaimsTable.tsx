@@ -11,7 +11,22 @@ interface Props {
   onSelect: (ref: string) => void
 }
 
-/** The claims list. Rows select on click; the ref is a button so the keyboard works; arrivals get the gold fade. */
+function PhoneTag() {
+  return (
+    <span className="inline-flex items-center gap-1 whitespace-nowrap rounded-full bg-gold/15 px-2 py-0.5 text-base font-semibold text-brown">
+      <svg viewBox="0 0 16 16" className="h-3.5 w-3.5" aria-hidden focusable="false">
+        <rect x="4" y="1.5" width="8" height="13" rx="1.6" fill="none" stroke="currentColor" strokeWidth="1.6" />
+        <circle cx="8" cy="12" r="0.9" fill="currentColor" />
+      </svg>
+      From the phone
+    </span>
+  )
+}
+
+/**
+ * The claims list. Rows select on click; the ref is a button so the keyboard works; arrivals get the gold fade.
+ * The issuing bureau column folds away when the container is narrow (it is always the Nigeria Bureau).
+ */
 export default function ClaimsTable({ claims, now, selectedRef, freshRefs, onSelect }: Props) {
   if (claims.length === 0) {
     return (
@@ -21,16 +36,16 @@ export default function ClaimsTable({ claims, now, selectedRef, freshRefs, onSel
     )
   }
   return (
-    <div className="overflow-x-auto rounded-xl border border-line bg-paper">
-      <table className="w-full min-w-[880px] border-collapse text-base">
+    <div className="cl-card @container overflow-hidden rounded-xl border border-line bg-paper">
+      <table className="w-full border-collapse text-base">
         <thead>
-          <tr className="border-b-2 border-line text-left text-base text-muted">
-            <th scope="col" className="px-4 py-3 font-medium">Ref</th>
-            <th scope="col" className="px-4 py-3 font-medium">Accident / handling bureau</th>
-            <th scope="col" className="px-4 py-3 font-medium">Issuing bureau</th>
-            <th scope="col" className="px-4 py-3 font-medium">Insurer</th>
-            <th scope="col" className="px-4 py-3 font-medium">Stage</th>
-            <th scope="col" className="w-[260px] px-4 py-3 font-medium">Turnaround clock</th>
+          <tr className="border-b-2 border-line bg-stone/50 text-left text-base text-muted">
+            <th scope="col" className="px-3 py-3 font-medium">Ref</th>
+            <th scope="col" className="px-3 py-3 font-medium">Accident / handling bureau</th>
+            <th scope="col" className="px-3 py-3 font-medium @max-5xl:hidden">Issuing bureau</th>
+            <th scope="col" className="px-3 py-3 font-medium">Insurer</th>
+            <th scope="col" className="px-3 py-3 font-medium">Stage</th>
+            <th scope="col" className="px-3 py-3 font-medium">Turnaround clock</th>
           </tr>
         </thead>
         <tbody>
@@ -41,12 +56,12 @@ export default function ClaimsTable({ claims, now, selectedRef, freshRefs, onSel
               <tr
                 key={c.ref}
                 onClick={() => onSelect(c.ref)}
-                aria-selected={selected}
+                data-selected={selected || undefined}
                 className={`cursor-pointer border-b border-line align-middle transition-colors last:border-b-0 hover:bg-stone/70 ${
-                  selected ? 'bg-stone' : ''
+                  selected ? 'bg-stone shadow-[inset_4px_0_0_var(--color-brown)]' : ''
                 } ${fresh ? 'claim-arrival' : ''}`}
               >
-                <td className="px-4 py-3">
+                <td className="px-3 py-3">
                   <button
                     type="button"
                     onClick={(e) => {
@@ -59,21 +74,24 @@ export default function ClaimsTable({ claims, now, selectedRef, freshRefs, onSel
                     {c.ref}
                   </button>
                   {c.source === 'reporter' && (
-                    <div className="mt-0.5 text-base font-semibold text-gold">New from reporter</div>
+                    <div className="mt-1 flex flex-col items-start gap-0.5">
+                      <PhoneTag />
+                      <span className="text-base font-semibold text-gold">New from reporter</span>
+                    </div>
                   )}
                   {c.escalated && <div className="mt-0.5 text-base font-semibold text-clay">Escalated</div>}
                 </td>
-                <td className="px-4 py-3">
+                <td className="px-3 py-3">
                   <div className="font-semibold text-ink">{c.accidentCountry}</div>
                   <div className="text-muted">{c.handlingBureau}</div>
                 </td>
-                <td className="px-4 py-3 text-ink">{c.issuingBureau}</td>
-                <td className="px-4 py-3 text-ink">{insurerName(c.insurerId)}</td>
-                <td className="px-4 py-3">
+                <td className="px-3 py-3 text-ink @max-5xl:hidden">{c.issuingBureau}</td>
+                <td className="px-3 py-3 text-ink">{insurerName(c.insurerId)}</td>
+                <td className="px-3 py-3">
                   <StageTracker stage={c.stage} />
-                  <div className="mt-1 whitespace-nowrap text-base text-muted">Stage {c.stage + 1} of 5</div>
+                  <div className="mt-1.5 whitespace-nowrap text-base text-muted">Stage {c.stage + 1} of 5</div>
                 </td>
-                <td className="px-4 py-3">
+                <td className="px-3 py-3">
                   <TurnaroundClock reading={readClock(c, now)} />
                 </td>
               </tr>

@@ -32,7 +32,7 @@ export default function WhatStep({
   const photosLeft = MAX_PHOTOS - draft.photoCount
 
   return (
-    <div className="space-y-5">
+    <div className="flex flex-1 flex-col gap-5">
       <Field label="Vehicles or people involved" hint="Count everyone in the accident, including you.">
         <OptionGrid<number> label="Parties involved" columns={5} options={PARTY_OPTIONS} value={draft.parties} onChange={(parties) => onChange({ parties })} />
       </Field>

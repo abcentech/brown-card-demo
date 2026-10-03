@@ -1,0 +1,73 @@
+/* Extras lane (step 1): the physical-looking Brown Card, the feature-phone screen and small motion. No library. */
+
+/* The card flips in from its edge when a policy is issued. */
+@keyframes bc-card-in {
+  0% { transform: perspective(1200px) rotateY(-82deg) translateX(-6%); opacity: 0; }
+  60% { opacity: 1; }
+  100% { transform: perspective(1200px) rotateY(0deg) translateX(0); opacity: 1; }
+}
+.bc-card-in { animation: bc-card-in 500ms cubic-bezier(0.2, 0.8, 0.2, 1) both; transform-origin: left center; }
+
+/* The card face: brown leather gradient, a faint guilloche and a gold edge. */
+.bc-card {
+  aspect-ratio: 1.586 / 1;
+  border-radius: 12px;
+  color: var(--color-paper);
+  background:
+    radial-gradient(120% 90% at 85% 10%, color-mix(in srgb, var(--color-gold) 22%, transparent) 0%, transparent 55%),
+    repeating-radial-gradient(circle at 110% 120%, transparent 0 11px, color-mix(in srgb, var(--color-paper) 5%, transparent) 11px 12px),
+    linear-gradient(135deg, #8a5226 0%, var(--color-brown) 45%, #4f2b12 100%);
+  box-shadow:
+    inset 0 0 0 1px color-mix(in srgb, var(--color-gold) 55%, transparent),
+    inset 0 1px 0 color-mix(in srgb, var(--color-paper) 25%, transparent),
+    0 24px 48px -18px color-mix(in srgb, var(--color-ink) 70%, transparent),
+    0 6px 14px -8px color-mix(in srgb, var(--color-ink) 50%, transparent);
+}
+.bc-card-ghost {
+  aspect-ratio: 1.586 / 1;
+  border-radius: 12px;
+  border: 2px dashed var(--color-line);
+  background: repeating-linear-gradient(135deg, transparent 0 14px, color-mix(in srgb, var(--color-line) 30%, transparent) 14px 15px);
+}
+/* The tiny contact chip. */
+.bc-chip {
+  width: 40px; height: 30px; border-radius: 6px;
+  background:
+    linear-gradient(90deg, transparent 0 46%, color-mix(in srgb, var(--color-brown) 55%, transparent) 46% 54%, transparent 54%),
+    linear-gradient(0deg, transparent 0 30%, color-mix(in srgb, var(--color-brown) 55%, transparent) 30% 36%, transparent 36% 64%, color-mix(in srgb, var(--color-brown) 55%, transparent) 64% 70%, transparent 70%),
+    linear-gradient(135deg, #e3c069 0%, var(--color-gold) 55%, #8d6512 100%);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--color-ink) 35%, transparent), 0 1px 2px color-mix(in srgb, var(--color-ink) 40%, transparent);
+}
+.bc-gold { color: #e3c069; }
+
+/* Feature-phone screen: a soft inner glow, like a backlit LCD. */
+.bc-screen {
+  background:
+    radial-gradient(90% 70% at 50% 0%, color-mix(in srgb, var(--color-mint) 28%, transparent) 0%, transparent 70%),
+    linear-gradient(180deg, var(--color-ink2) 0%, var(--color-ink) 100%);
+  box-shadow:
+    inset 0 0 0 1px color-mix(in srgb, var(--color-paper) 10%, transparent),
+    inset 0 0 28px color-mix(in srgb, var(--color-mint) 18%, transparent),
+    0 0 24px -4px color-mix(in srgb, var(--color-mint) 35%, transparent);
+  transition: box-shadow 300ms ease;
+}
+.bc-screen[data-status='covered'] { box-shadow: inset 0 0 0 2px var(--color-mint), inset 0 0 28px color-mix(in srgb, var(--color-mint) 25%, transparent), 0 0 28px -2px color-mix(in srgb, var(--color-mint) 55%, transparent); }
+.bc-screen[data-status='lapsed'] { box-shadow: inset 0 0 0 2px var(--color-gold), inset 0 0 28px color-mix(in srgb, var(--color-gold) 25%, transparent), 0 0 28px -2px color-mix(in srgb, var(--color-gold) 55%, transparent); }
+.bc-screen[data-status='not_found'], .bc-screen[data-status='invalid'] { box-shadow: inset 0 0 0 2px var(--color-clay), inset 0 0 28px color-mix(in srgb, var(--color-clay) 25%, transparent), 0 0 28px -2px color-mix(in srgb, var(--color-clay) 55%, transparent); }
+
+/* Typewriter cursor: a pseudo-element, so the screen text itself never changes. */
+@keyframes bc-blink { 0%, 49% { opacity: 1; } 50%, 100% { opacity: 0; } }
+.bc-typing::after { content: ''; display: inline-block; width: 0.55em; height: 1em; margin-left: 2px; vertical-align: -0.15em; background: var(--color-paper); animation: bc-blink 700ms steps(1) infinite; }
+
+/* Keypad: a quick press-down. */
+.bc-key { transition: transform 80ms ease, background-color 80ms ease, box-shadow 80ms ease; box-shadow: 0 2px 0 color-mix(in srgb, var(--color-ink) 35%, transparent); }
+.bc-key:active { transform: translateY(2px) scale(0.97); box-shadow: 0 0 0 transparent; }
+
+/* The phone body. */
+.bc-phone { box-shadow: 0 30px 50px -24px color-mix(in srgb, var(--color-ink) 80%, transparent), inset 0 1px 0 color-mix(in srgb, var(--color-paper) 12%, transparent); }
+
+@media (prefers-reduced-motion: reduce) {
+  .bc-card-in { animation: none; }
+  .bc-typing::after { animation: none; }
+  .bc-key, .bc-screen { transition: none; }
+}

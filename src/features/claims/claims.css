@@ -1,12 +1,43 @@
-/* Live-arrival highlight for the claims dashboard: a 3 s fade from gold to transparent. No library. */
+/* Claims dashboard motion and finish. Hand-written, no library. Tokens come from src/index.css. */
+
+/* Live-arrival highlight: a 3 s fade from gold to transparent on the new row. */
 @keyframes claim-arrival {
-  0% { background-color: rgba(184, 135, 31, 0.55); box-shadow: inset 6px 0 0 #b8871f; }
-  60% { background-color: rgba(184, 135, 31, 0.3); box-shadow: inset 6px 0 0 #b8871f; }
+  0% { background-color: color-mix(in srgb, var(--color-gold) 55%, transparent); box-shadow: inset 6px 0 0 var(--color-gold); }
+  60% { background-color: color-mix(in srgb, var(--color-gold) 30%, transparent); box-shadow: inset 6px 0 0 var(--color-gold); }
   100% { background-color: transparent; box-shadow: inset 6px 0 0 transparent; }
 }
-.claim-arrival {
-  animation: claim-arrival 3s ease-out forwards;
+.claim-arrival { animation: claim-arrival 3s ease-out forwards; }
+
+/* Slim mint banner above the table: slides in, holds, fades out over 5 s. */
+@keyframes claim-banner {
+  0% { opacity: 0; transform: translateY(-10px); }
+  8% { opacity: 1; transform: none; }
+  88% { opacity: 1; transform: none; }
+  100% { opacity: 0; transform: translateY(-4px); }
 }
+.claim-banner { animation: claim-banner 5s cubic-bezier(.2,.7,.2,1) forwards; }
+
+/* Corridor diagram: the active link carries moving dashes, the active node breathes. */
+@keyframes corridor-flow { to { stroke-dashoffset: -32; } }
+.corridor-flow { animation: corridor-flow 1.4s linear infinite; }
+@keyframes corridor-glow {
+  0%, 100% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--color-mint) 45%, transparent); }
+  50% { box-shadow: 0 0 0 10px color-mix(in srgb, var(--color-mint) 0%, transparent); }
+}
+.corridor-active { animation: corridor-glow 2.6s ease-in-out infinite; }
+@keyframes corridor-pill-in { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+.corridor-pill { animation: corridor-pill-in 380ms cubic-bezier(.2,.7,.2,1) both; }
+.corridor-node { transition: border-color 400ms ease, box-shadow 400ms ease; }
+
+/* Rings, trackers and cards. */
+.clock-ring { transition: stroke-dashoffset 700ms cubic-bezier(.2,.8,.2,1), stroke 400ms ease; }
+.stage-fill { transition: width 500ms cubic-bezier(.2,.8,.2,1); }
+.stage-dot { transition: background-color 300ms ease, border-color 300ms ease, color 300ms ease; }
+.cl-card { box-shadow: 0 14px 36px -18px rgba(18, 38, 30, 0.32), 0 2px 6px -2px rgba(18, 38, 30, 0.10); }
+
 @media (prefers-reduced-motion: reduce) {
   .claim-arrival { animation-duration: 0.01s; }
+  .claim-banner { animation: none; }
+  .corridor-flow, .corridor-active, .corridor-pill { animation: none; }
+  .clock-ring, .stage-fill, .stage-dot, .corridor-node { transition: none; }
 }

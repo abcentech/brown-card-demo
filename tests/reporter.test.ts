@@ -2,8 +2,8 @@ import { describe, expect, it } from 'vitest'
 import {
   enqueue, flushQueue, isResetError, QUEUE_KEY, readQueue, removeFromQueue, RESET_KEY, syncResetMarker, type StorageLike,
 } from '../src/features/reporter/queue'
-import { emptyDraft, toIncidentInput } from '../src/features/reporter/model'
-import { SAMPLE_COVERED } from '../src/shared/seed'
+import { emptyDraft, formatCardInput, toIncidentInput } from '../src/features/reporter/model'
+import { SAMPLE_BAD_CHECK, SAMPLE_COVERED } from '../src/shared/seed'
 import type { IncidentInput, IncidentResult } from '../src/shared/types'
 
 const fakeStorage = (): StorageLike & { map: Map<string, string> } => {
@@ -90,5 +90,31 @@ describe('reporter draft mapping', () => {
     expect(out.narrative).toBe('Bumped')
     expect(out.injuries).toBe(false)
     expect(out.crossing).toBe('Other')
+  })
+})
+
+describe('card number input formatting', () => {
+  it('leaves a full, well-formed number unchanged', () => {
+    expect(formatCardInput(SAMPLE_COVERED)).toBe(SAMPLE_COVERED)
+    expect(formatCardInput(SAMPLE_BAD_CHECK)).toBe(SAMPLE_BAD_CHECK)
+  })
+  it('uppercases, adds hyphens and supplies the NG-26 prefix', () => {
+    expect(formatCardInput('ng264a7c11805')).toBe('NG-26-4A7C-1180-5')
+    expect(formatCardInput('4a7c')).toBe('NG-26-4A7C')
+    expect(formatCardInput('4a7c1')).toBe('NG-26-4A7C-1')
+    expect(formatCardInput('4A7C11809')).toBe('NG-26-4A7C-1180-9')
+  })
+  it('lets the prefix be typed and deleted a character at a time', () => {
+    expect(formatCardInput('')).toBe('')
+    expect(formatCardInput('N')).toBe('N')
+    expect(formatCardInput('NG')).toBe('NG')
+    expect(formatCardInput('NG-2')).toBe('NG-2')
+    expect(formatCardInput('NG-26')).toBe('NG-26')
+    expect(formatCardInput('NG-26-')).toBe('NG-26')
+  })
+  it('drops characters outside the hex alphabet and caps the length', () => {
+    expect(formatCardInput('NG-26-4Z7C-1180-D')).toBe('NG-26-47C1-180D')
+    expect(formatCardInput('NG-26-4A7C-1180-5DEADBEEF')).toBe('NG-26-4A7C-1180-5')
+    expect(formatCardInput('NG-26-4A7C-1180-A')).toBe('NG-26-4A7C-1180')
   })
 })

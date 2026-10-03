@@ -1,12 +1,13 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { platform } from '../../platform'
 import { getResetGeneration } from '../../state/store'
 import { INSURERS } from '../../shared/seed'
 import type { ExceptionAction, ExceptionRow, ExceptionStatus } from '../../shared/types'
 import {
-  CAUSES, CAUSE_LABEL, CHANNELS, CHANNEL_LABEL, EMPTY_FILTER, PAGE_SIZE, STATUSES, STATUS_LABEL,
-  applyFilter, assigneeFor, confirmationText, fmtInt, groupByInsurer, sum, type ExceptionFilter,
+  CAUSES, CAUSE_LABEL, CHANNELS, CHANNEL_LABEL, DEFAULT_FILTER, PAGE_SIZE, STATUSES, STATUS_LABEL,
+  applyFilter, assigneeFor, confirmationText, fmtInt, groupByInsurer, sortResolvedLast, sum, type ExceptionFilter,
 } from './helpers'
+import { prefersReducedMotion } from './hooks'
 
 const BADGE: Record<ExceptionStatus, string> = {
   open: 'bg-stone text-ink border-line',
@@ -23,21 +24,39 @@ export function StatusBadge({ status }: { status: ExceptionStatus }) {
   )
 }
 
+export interface ActionSummary {
+  action: ExceptionAction
+  batches: number
+  policies: number
+}
+
+/** A request from the insurer bars: filter to this insurer and select all of its open batches. '' clears. */
+export interface InsurerPick {
+  insurerId: string
+  seq: number
+}
+
 interface Props {
   exceptions: ExceptionRow[]
-  onConfirm: (text: string) => void
+  onConfirm: (text: string, summary?: ActionSummary) => void
+  insurerPick: InsurerPick | null
+  onInsurerFilterChange: (insurerId: string) => void
 }
 
 const selectCls = 'rounded-lg border border-line bg-paper px-3 py-2 text-base text-ink'
 
+const sameFilter = (a: ExceptionFilter, b: ExceptionFilter) =>
+  a.insurerId === b.insurerId && a.channel === b.channel && a.cause === b.cause && a.status === b.status
+
 /** The store's exception rows, filterable, with checkbox selection and actions through the platform adapter. */
-export default function ExceptionList({ exceptions, onConfirm }: Props) {
-  const [filter, setFilter] = useState<ExceptionFilter>(EMPTY_FILTER)
+export default function ExceptionList({ exceptions, onConfirm, insurerPick, onInsurerFilterChange }: Props) {
+  const [filter, setFilter] = useState<ExceptionFilter>(DEFAULT_FILTER)
   const [selected, setSelected] = useState<Set<string>>(() => new Set())
   const [busy, setBusy] = useState<ExceptionAction | null>(null)
   const [pages, setPages] = useState(1)
+  const sectionRef = useRef<HTMLElement>(null)
 
-  const filtered = useMemo(() => applyFilter(exceptions, filter), [exceptions, filter])
+  const filtered = useMemo(() => sortResolvedLast(applyFilter(exceptions, filter)), [exceptions, filter])
   // Only the first page(s) are in the DOM; selection and "select all" still work over the whole filtered set.
   const visible = filtered.length > pages * PAGE_SIZE ? filtered.slice(0, pages * PAGE_SIZE) : filtered
   const hiddenCount = filtered.length - visible.length
@@ -51,8 +70,21 @@ export default function ExceptionList({ exceptions, onConfirm }: Props) {
     })
   }, [byId])
 
+  // The insurer bars asked for an insurer: filter to it, select every open batch, bring the list into view.
+  const lastPick = useRef<number>(0)
+  useEffect(() => {
+    if (!insurerPick || insurerPick.seq === lastPick.current) return
+    lastPick.current = insurerPick.seq
+    const id = insurerPick.insurerId
+    setFilter({ ...DEFAULT_FILTER, insurerId: id })
+    setPages(1)
+    setSelected(id ? new Set(exceptions.filter((e) => e.insurerId === id && e.status !== 'resolved').map((e) => e.id)) : new Set())
+    if (id) sectionRef.current?.scrollIntoView({ behavior: prefersReducedMotion() ? 'auto' : 'smooth', block: 'start' })
+  }, [insurerPick, exceptions])
+
   const selectedRows = useMemo(() => exceptions.filter((e) => selected.has(e.id)), [exceptions, selected])
-  const selectablePolicies = sum(selectedRows.filter((e) => e.status !== 'resolved'))
+  const actionable = selectedRows.filter((e) => e.status !== 'resolved')
+  const selectablePolicies = sum(actionable)
   const openFiltered = filtered.filter((e) => e.status !== 'resolved')
   const allFilteredSelected = openFiltered.length > 0 && openFiltered.every((e) => selected.has(e.id))
 
@@ -94,8 +126,10 @@ export default function ExceptionList({ exceptions, onConfirm }: Props) {
       }
       const policies = action === 'backfill' ? cleared : sum(rows)
       const insurers = [...new Set(rows.map((e) => e.insurerId))].sort()
-      onConfirm(confirmationText(action, rows.length, policies, insurers))
+      onConfirm(confirmationText(action, rows.length, policies, insurers), { action, batches: rows.length, policies })
       if (action === 'backfill') setSelected(new Set())
+    } catch {
+      onConfirm('The action did not go through. Try again.')
     } finally {
       setBusy(null)
     }
@@ -104,15 +138,19 @@ export default function ExceptionList({ exceptions, onConfirm }: Props) {
   const set = <K extends keyof ExceptionFilter>(k: K, v: ExceptionFilter[K]) => {
     setFilter((f) => ({ ...f, [k]: v }))
     setPages(1)
+    if (k === 'insurerId') onInsurerFilterChange(v as string)
   }
   const clearFilters = () => {
-    setFilter(EMPTY_FILTER)
+    setFilter(DEFAULT_FILTER)
     setPages(1)
+    onInsurerFilterChange('')
   }
   const assignTargets = [...new Set(selectedRows.map((e) => e.insurerId))].sort()
+  const hasSelection = actionable.length > 0
+  const batchesWord = actionable.length === 1 ? 'batch' : 'batches'
 
   return (
-    <section className="rounded-xl border border-line bg-paper p-6" aria-labelledby="exceptions">
+    <section ref={sectionRef} className="cc-card scroll-mt-16 rounded-xl border border-line bg-paper p-6" aria-labelledby="exceptions">
       <div className="flex flex-wrap items-baseline justify-between gap-3">
         <h3 id="exceptions" className="text-xl font-semibold">Exception list: policy batches without a card number</h3>
         <p className="text-base text-muted">
@@ -152,42 +190,24 @@ export default function ExceptionList({ exceptions, onConfirm }: Props) {
         <label className="grid gap-1 text-base">
           <span className="text-muted">Status</span>
           <select className={selectCls} value={filter.status} onChange={(e) => set('status', e.target.value as ExceptionFilter['status'])}>
+            <option value="unresolved">Still to resolve</option>
             <option value="">All statuses</option>
             {STATUSES.map((s) => (
               <option key={s} value={s}>{STATUS_LABEL[s]}</option>
             ))}
           </select>
         </label>
-        {(filter.insurerId || filter.channel || filter.cause || filter.status) && (
+        {!sameFilter(filter, DEFAULT_FILTER) && (
           <button type="button" onClick={clearFilters} className="rounded-lg border border-line px-3 py-2 text-base text-muted hover:text-ink">
             Clear filters
           </button>
         )}
       </div>
 
-      {/* Action bar */}
-      <div className="mt-4 flex flex-wrap items-center gap-3 rounded-lg bg-stone px-4 py-3 text-base">
-        <span className="font-semibold">
-          {selectedRows.length ? `${selectedRows.length} ${selectedRows.length === 1 ? 'batch' : 'batches'} selected · ${fmtInt(selectablePolicies)} policies` : 'Select batches to act on them'}
-        </span>
-        <div className="ml-auto flex flex-wrap gap-2">
-          <ActionButton label="Back-fill" hint="Allocate card numbers to the batch" tone="bg-mint text-paper" disabled={!selectablePolicies || !!busy} busy={busy === 'backfill'} onClick={() => run('backfill')} />
-          <ActionButton label="Remind" hint="Send a reminder to the intermediary" tone="bg-gold text-ink" disabled={!selectablePolicies || !!busy} busy={busy === 'remind'} onClick={() => run('remind')} />
-          <ActionButton
-            label="Assign"
-            hint={assignTargets.length === 1 ? `Assign to ${assigneeFor(assignTargets[0])}` : 'Assign to each insurer’s compliance desk'}
-            tone="bg-brown text-paper"
-            disabled={!selectablePolicies || !!busy}
-            busy={busy === 'assign'}
-            onClick={() => run('assign')}
-          />
-        </div>
-      </div>
-
       {/* Table */}
       <div className="mt-4 max-h-[28rem] overflow-auto rounded-lg border border-line">
         <table className="w-full border-collapse text-base">
-          <thead className="sticky top-0 bg-paper text-left">
+          <thead className="sticky top-0 z-10 bg-paper text-left">
             <tr className="border-b border-line">
               <th className="w-12 px-3 py-2">
                 <input
@@ -210,15 +230,32 @@ export default function ExceptionList({ exceptions, onConfirm }: Props) {
           <tbody>
             {filtered.length === 0 && (
               <tr>
-                <td colSpan={7} className="px-3 py-6 text-center text-muted">No batches match these filters.</td>
+                <td colSpan={7} className="px-3 py-6 text-center text-muted">
+                  {filter.insurerId && filter.status === 'unresolved' ? (
+                    <span className="inline-flex flex-wrap items-center justify-center gap-3">
+                      <span className="font-semibold text-mint">Insurer {filter.insurerId} has no batches left to resolve.</span>
+                      <button type="button" onClick={clearFilters} className="rounded-lg border border-line px-3 py-1.5 text-base font-semibold text-ink hover:bg-stone">
+                        Show all insurers
+                      </button>
+                    </span>
+                  ) : (
+                    'No batches match these filters.'
+                  )}
+                </td>
               </tr>
             )}
             {visible.map((e) => {
               const resolved = e.status === 'resolved'
               const isSel = selected.has(e.id)
               return (
-                <tr key={e.id} className={`border-b border-line/60 ${isSel ? 'bg-gold/10' : resolved ? 'text-muted' : ''}`}>
-                  <td className="px-3 py-2">
+                <tr
+                  key={e.id}
+                  onClick={() => !resolved && toggle(e.id)}
+                  className={`border-b border-line/60 transition-colors ${
+                    isSel ? 'bg-gold/10' : resolved ? 'text-muted' : 'cursor-pointer hover:bg-stone/50'
+                  }`}
+                >
+                  <td className="px-3 py-2" onClick={(ev) => ev.stopPropagation()}>
                     <input
                       type="checkbox"
                       className="h-5 w-5 accent-brown"
@@ -251,11 +288,62 @@ export default function ExceptionList({ exceptions, onConfirm }: Props) {
           </button>
         </div>
       )}
+
+      {/* Action bar: a quiet hint until something is selected, then it sticks to the bottom edge and slides up. */}
+      <div
+        className={`mt-4 flex flex-wrap items-center gap-3 rounded-xl px-4 py-3 text-base ${
+          hasSelection
+            ? 'cc-actionbar-in sticky bottom-4 z-20 bg-ink text-paper shadow-[0_18px_40px_-18px_rgba(18,38,30,0.7)]'
+            : 'bg-stone text-ink'
+        }`}
+      >
+        <span className="font-semibold">
+          {hasSelection
+            ? `${actionable.length} ${batchesWord} selected · ${fmtInt(selectablePolicies)} policies`
+            : 'Select batches to act on them'}
+        </span>
+        <div className="ml-auto flex flex-wrap gap-2">
+          <ActionButton
+            label="Back-fill"
+            count={hasSelection ? `${actionable.length} ${batchesWord}` : undefined}
+            hint="Allocate card numbers to the batch"
+            tone="bg-mint text-paper"
+            disabled={!selectablePolicies || !!busy}
+            busy={busy === 'backfill'}
+            onClick={() => run('backfill')}
+          />
+          <ActionButton label="Remind" hint="Send a reminder to the intermediary" tone="bg-gold text-ink" disabled={!selectablePolicies || !!busy} busy={busy === 'remind'} onClick={() => run('remind')} />
+          <ActionButton
+            label="Assign"
+            hint={assignTargets.length === 1 ? `Assign to ${assigneeFor(assignTargets[0])}` : 'Assign to each insurer’s compliance desk'}
+            tone="bg-brown text-paper"
+            disabled={!selectablePolicies || !!busy}
+            busy={busy === 'assign'}
+            onClick={() => run('assign')}
+          />
+        </div>
+      </div>
     </section>
   )
 }
 
-function ActionButton({ label, hint, tone, disabled, busy, onClick }: { label: string; hint: string; tone: string; disabled: boolean; busy: boolean; onClick: () => void }) {
+function ActionButton({
+  label,
+  count,
+  hint,
+  tone,
+  disabled,
+  busy,
+  onClick,
+}: {
+  label: string
+  count?: string
+  hint: string
+  tone: string
+  disabled: boolean
+  busy: boolean
+  onClick: () => void
+}) {
   return (
     <button
       type="button"
@@ -264,7 +352,15 @@ function ActionButton({ label, hint, tone, disabled, busy, onClick }: { label: s
       onClick={onClick}
       className={`rounded-lg px-4 py-2 text-base font-semibold disabled:cursor-not-allowed disabled:opacity-40 ${tone}`}
     >
-      {busy ? 'Working…' : label}
+      {busy ? (
+        'Working…'
+      ) : (
+        <>
+          {label}
+          {/* The count is visible but kept out of the accessible name so the button stays "Back-fill". */}
+          {count && <span aria-hidden className="ml-1.5 font-normal opacity-90">{count}</span>}
+        </>
+      )}
     </button>
   )
 }

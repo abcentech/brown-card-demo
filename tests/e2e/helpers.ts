@@ -9,6 +9,9 @@ export async function freshStart(page: Page, path = '/') {
   await page.goto(path)
   await page.evaluate(() => { localStorage.removeItem('bcd-state-v1'); sessionStorage.removeItem('bcd-reporter-submission-v1') })
   await page.reload()
+  // A fresh main window shows the opening card; the presenter presses Start the demo before step 1.
+  const start = page.getByRole('button', { name: 'Start the demo', exact: true })
+  if (await start.isVisible().catch(() => false)) await start.click()
 }
 
 export async function readPct(page: Page): Promise<number> {

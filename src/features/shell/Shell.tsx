@@ -1,108 +1,176 @@
-import { useEffect, type ReactNode } from 'react'
+import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
 import { useDemo } from '../../state/store'
 import { STEP_LABELS, type DemoStep } from '../../shared/types'
+import ArrivalToast from './ArrivalToast'
+import JourneyStrip from './JourneyStrip'
+import Opening from './Opening'
+import { useClockLabel } from './useClock'
 
-const SHORT_LABELS = ['Issue and check', 'Incident report', 'Claims dashboard', 'Compliance console', 'Close'] as const
+const OPENED_KEY = 'bcd-opened'
+const readOpened = () => {
+  try {
+    return sessionStorage.getItem(OPENED_KEY) === '1'
+  } catch {
+    return false
+  }
+}
+const writeOpened = (v: boolean) => {
+  try {
+    if (v) sessionStorage.setItem(OPENED_KEY, '1')
+    else sessionStorage.removeItem(OPENED_KEY)
+  } catch {
+    /* private mode: ignore */
+  }
+}
 
-/** Presenter shell: sticky banner, large stepper, reset, keyboard shortcuts (1 to 5, Shift+R). */
+/**
+ * Presenter shell: sticky banner, header with clock and controls, the journey strip, animated step content,
+ * an opening title card on a fresh load, a live-arrival toast, and keyboard shortcuts (1 to 5, Shift+R, F).
+ */
 export default function Shell({ children }: { children: ReactNode }) {
   const step = useDemo((s) => s.step)
+  const resetCount = useDemo((s) => s.resetCount)
   const setStep = useDemo((s) => s.setStep)
   const reset = useDemo((s) => s.reset)
+  const time = useClockLabel()
 
-  // Hidden control: keys 1 to 5 jump to a step; Shift+R resets. Ignored while typing in a field.
+  const chromeRef = useRef<HTMLDivElement>(null)
+  const [opened, setOpened] = useState(readOpened)
+  const showOpening = step === 0 && !opened
+
+  const start = useCallback(() => {
+    setOpened(true)
+    writeOpened(true)
+  }, [])
+  const pick = useCallback(
+    (s: DemoStep) => {
+      start()
+      setStep(s)
+    },
+    [start, setStep],
+  )
+  const doReset = useCallback(() => {
+    reset()
+    setOpened(false)
+    writeOpened(false)
+  }, [reset])
+
+  // Any step change dismisses the opening and shows the new screen from the top; a reset from another window brings the opening back.
+  useEffect(() => {
+    if (step !== 0) start()
+    // Screens may focus a field on mount, which can nudge the page; settle back to the top.
+    window.scrollTo(0, 0)
+    const raf = requestAnimationFrame(() => window.scrollTo(0, 0))
+    const id = setTimeout(() => window.scrollTo(0, 0), 180)
+    return () => {
+      cancelAnimationFrame(raf)
+      clearTimeout(id)
+    }
+  }, [step, start])
+  const firstReset = useRef(resetCount)
+  useEffect(() => {
+    if (resetCount !== firstReset.current) {
+      firstReset.current = resetCount
+      setOpened(false)
+      writeOpened(false)
+    }
+  }, [resetCount])
+
+  // Full screen
+  const [fullscreen, setFullscreen] = useState(false)
+  useEffect(() => {
+    const on = () => setFullscreen(!!document.fullscreenElement)
+    document.addEventListener('fullscreenchange', on)
+    return () => document.removeEventListener('fullscreenchange', on)
+  }, [])
+  const toggleFullscreen = useCallback(() => {
+    if (document.fullscreenElement) void document.exitFullscreen?.().catch(() => {})
+    else void document.documentElement.requestFullscreen?.().catch(() => {})
+  }, [])
+
+  // Hidden controls: 1 to 5 jump to a step; Shift+R resets; F toggles full screen; Enter/Space starts the demo.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       const target = e.target as HTMLElement | null
       if (target?.closest('input, textarea, select, [contenteditable="true"]') || e.ctrlKey || e.altKey || e.metaKey) return
       if (e.key >= '1' && e.key <= '5') {
         e.preventDefault()
-        setStep((Number(e.key) - 1) as DemoStep)
+        pick((Number(e.key) - 1) as DemoStep)
+        return
       }
       if (e.key.toLowerCase() === 'r' && e.shiftKey) {
         e.preventDefault()
-        reset()
+        doReset()
+        return
+      }
+      if (e.key.toLowerCase() === 'f' && !e.shiftKey) {
+        if (target?.closest('button, a')) return
+        e.preventDefault()
+        toggleFullscreen()
+        return
+      }
+      if (showOpening && (e.key === 'Enter' || e.key === ' ') && !target?.closest('button, a')) {
+        e.preventDefault()
+        start()
       }
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [setStep, reset])
+  }, [pick, doReset, toggleFullscreen, showOpening, start])
 
   return (
     <div className="flex min-h-full flex-col text-base text-ink">
-      <div className="sticky top-0 z-30 bg-gold px-4 py-2 text-center text-base font-semibold text-ink shadow-sm">
-        Illustrative data · Mock of the operators' platform · Not a live system
-      </div>
-
-      <header className="border-b border-line bg-paper px-4 py-4 sm:px-7">
-        <div className="flex flex-wrap items-center justify-between gap-4">
-          <div>
-            <div className="text-2xl font-bold leading-tight">The Brown Card as a service</div>
-            <div className="mt-0.5 text-base text-muted">ArkBuilders Consulting · ECOWAS Brown Card demo</div>
-          </div>
-          <div className="flex flex-wrap items-center gap-3">
-            <a
-              href="?view=claims"
-              target="_blank"
-              rel="noreferrer"
-              className="rounded-lg border border-line px-4 py-2 text-base font-semibold hover:bg-stone"
-            >
-              Open claims window
-            </a>
-            <button
-              type="button"
-              onClick={reset}
-              className="rounded-lg border border-brown px-4 py-2 text-base font-semibold text-brown hover:bg-brown hover:text-paper"
-            >
-              Reset demo
-            </button>
-          </div>
+      <div ref={chromeRef}>
+        <div className="sticky top-0 z-30 bg-gold px-4 py-2 text-center text-base font-semibold text-ink shadow-sm">
+          Illustrative data · Mock of the operators' platform · Not a live system
         </div>
 
-        <nav className="mt-3 grid gap-2 sm:grid-cols-5" aria-label="Demo steps">
-          {STEP_LABELS.map((label, i) => {
-            const current = step === i
-            const done = i < step
-            return (
+        <header className="relative z-20 border-b border-line bg-paper px-4 pt-3 pb-3 sm:px-7">
+          <div className="flex flex-wrap items-center justify-between gap-x-6 gap-y-3">
+            <div className="flex items-baseline gap-3">
+              <span className="text-2xl font-bold leading-tight tracking-tight">The Brown Card as a service</span>
+              <span className="hidden text-base text-muted md:inline">ArkBuilders Consulting · ECOWAS Brown Card demo</span>
+            </div>
+            <div className="flex flex-wrap items-center gap-3">
+              <span className="rounded-lg bg-stone px-3 py-2 text-base font-semibold tabular-nums text-ink" aria-label={`Current time ${time}`}>
+                {time}
+              </span>
               <button
-                key={label}
                 type="button"
-                onClick={() => setStep(i as DemoStep)}
-                aria-current={current ? 'step' : undefined}
-                title={label}
-                className={`flex items-center gap-3 rounded-xl border-2 px-3 py-3 text-left transition-colors ${
-                  current
-                    ? 'border-ink bg-ink text-paper shadow-md'
-                    : done
-                      ? 'border-mint/50 bg-mint/10 text-ink hover:bg-mint/20'
-                      : 'border-line bg-stone/50 text-ink hover:bg-stone'
-                }`}
+                onClick={toggleFullscreen}
+                aria-pressed={fullscreen}
+                title="Toggle full screen (F)"
+                className="rounded-lg border border-line px-4 py-2 text-base font-semibold hover:bg-stone"
               >
-                <span
-                  aria-hidden
-                  className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-2xl font-bold ${
-                    current ? 'bg-gold text-ink' : done ? 'bg-mint text-paper' : 'bg-line/60 text-ink'
-                  }`}
-                >
-                  {i + 1}
-                </span>
-                <span className="min-w-0">
-                  <span className={`block text-lg font-semibold leading-tight ${current ? 'text-paper' : 'text-ink'}`}>
-                    {SHORT_LABELS[i]}
-                  </span>
-                  <span className={`block text-base leading-tight ${current ? 'text-paper/80' : 'text-muted'}`}>
-                    {current ? 'Current step' : done ? 'Done' : `Step ${i + 1}`}
-                  </span>
-                </span>
+                {fullscreen ? 'Exit full screen' : 'Full screen'}
               </button>
-            )
-          })}
-        </nav>
-      </header>
+              <a
+                href="?view=claims"
+                target="_blank"
+                rel="noreferrer"
+                className="rounded-lg border border-line px-4 py-2 text-base font-semibold hover:bg-stone"
+              >
+                Open claims window
+              </a>
+              <button
+                type="button"
+                onClick={doReset}
+                className="rounded-lg border border-brown px-4 py-2 text-base font-semibold text-brown hover:bg-brown hover:text-paper"
+              >
+                Reset demo
+              </button>
+            </div>
+          </div>
 
-      <main className="flex-1 p-4 sm:p-7">{children}</main>
+          <JourneyStrip step={step} onPick={pick} />
+        </header>
+      </div>
 
-      <footer className="flex flex-wrap items-center justify-between gap-3 border-t border-line bg-paper px-4 py-4 sm:px-7">
+      <main key={step} inert={showOpening || undefined} aria-hidden={showOpening || undefined} className="bcd-step-enter flex-1 p-4 sm:p-7">
+        {children}
+      </main>
+
+      <footer inert={showOpening || undefined} aria-hidden={showOpening || undefined} className="flex flex-wrap items-center justify-between gap-3 border-t border-line bg-paper px-4 py-4 sm:px-7">
         <p className="flex flex-wrap items-center gap-x-4 gap-y-1 text-base text-muted">
           <span>
             Step {step + 1} of 5: <span className="font-semibold text-ink">{STEP_LABELS[step]}</span>
@@ -113,12 +181,15 @@ export default function Shell({ children }: { children: ReactNode }) {
           <span className="flex items-center gap-1.5">
             <Kbd>Shift</Kbd>+<Kbd>R</Kbd> reset
           </span>
-          <span>Illustrative demo · works offline · operator API to be confirmed</span>
+          <span className="flex items-center gap-1.5">
+            <Kbd>F</Kbd> full screen
+          </span>
+          <span className="hidden xl:inline">Works offline · illustrative</span>
         </p>
         <div className="flex gap-3">
           <button
             type="button"
-            onClick={() => setStep(Math.max(0, step - 1) as DemoStep)}
+            onClick={() => pick(Math.max(0, step - 1) as DemoStep)}
             disabled={step === 0}
             className="rounded-lg border border-line px-4 py-2 text-base font-semibold disabled:opacity-40"
           >
@@ -126,21 +197,24 @@ export default function Shell({ children }: { children: ReactNode }) {
           </button>
           <button
             type="button"
-            onClick={() => setStep(Math.min(4, step + 1) as DemoStep)}
+            onClick={() => pick(Math.min(4, step + 1) as DemoStep)}
             disabled={step === 4}
-            className="rounded-lg bg-ink px-5 py-2 text-base font-semibold text-paper disabled:opacity-40"
+            className="bcd-shadow rounded-lg bg-ink px-5 py-2 text-base font-semibold text-paper disabled:opacity-40"
           >
             Next step
           </button>
         </div>
       </footer>
+
+      {showOpening && <Opening topRef={chromeRef} onStart={start} />}
+      <ArrivalToast onShow={() => pick(2)} />
     </div>
   )
 }
 
 function Kbd({ children }: { children: ReactNode }) {
   return (
-    <kbd className="rounded border border-line bg-paper px-1.5 py-0.5 font-mono text-base font-semibold text-ink shadow-[0_1px_0_#c6c0ae]">
+    <kbd className="rounded border border-line bg-paper px-1.5 py-0.5 font-mono text-base font-semibold text-ink shadow-[0_1px_0_var(--color-line)]">
       {children}
     </kbd>
   )

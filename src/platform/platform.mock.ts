@@ -41,12 +41,20 @@ export const mockPlatform: Platform = {
   },
 
   async createIncident(input) {
+    const gen = getResetGeneration()
     if (!(await waitUnlessReset(LATENCY.create))) throw new ResetDuringRequest()
     const v = await mockPlatform.verifyCard(input.cardNumber)
+    if (getResetGeneration() !== gen) throw new ResetDuringRequest()
     const verified = v.status === 'covered'
-    counter += 1
-    const incidentRef = `IR-26-${String(10000 + (counter % 90000))}`
-    const claimRef = `CL-${String(500 + (counter % 500)).padStart(4, '0')}`
+    // The counter restarts on every page load, so skip refs already held by persisted claims.
+    const taken = new Set(useDemo.getState().claims.flatMap((c) => [c.ref, c.incidentRef ?? '']))
+    let incidentRef = ''
+    let claimRef = ''
+    do {
+      counter += 1
+      incidentRef = `IR-26-${String(10000 + (counter % 90000))}`
+      claimRef = `CL-${String(500 + (counter % 500)).padStart(4, '0')}`
+    } while (taken.has(claimRef) || taken.has(incidentRef))
     const claim: Claim = {
       ref: claimRef,
       incidentRef,
@@ -95,7 +103,10 @@ export const mockPlatform: Platform = {
 
   async issuePolicy(input): Promise<IssuedPolicy> {
     if (!(await waitUnlessReset(LATENCY.issue))) throw new ResetDuringRequest()
-    const cardNumber = randomCard(rng) || formatCard('00000000')
+    // Never hand out a number already on the register (seeded or issued in an earlier session).
+    const registry = useDemo.getState().registry
+    let cardNumber = randomCard(rng) || formatCard('00000000')
+    for (let tries = 0; registry[cardNumber] && tries < 50; tries++) cardNumber = randomCard(rng)
     const validTo = addMonths(new Date(), input.termMonths).toISOString().slice(0, 10)
     const issued: IssuedPolicy = { ...input, cardNumber, validTo }
     useDemo.getState().addRegistryEntry(
