@@ -3,6 +3,7 @@ import ExtrasScreen from './features/extras'
 import ReporterScreen from './features/reporter'
 import ClaimsScreen from './features/claims'
 import ComplianceScreen from './features/compliance'
+import CloseScreen from './features/close'
 import { useDemo } from './state/store'
 
 /**
@@ -28,12 +29,7 @@ export default function App() {
       )}
       {step === 2 && <ClaimsScreen />}
       {step === 3 && <ComplianceScreen />}
-      {step === 4 && (
-        <div className="mx-auto max-w-2xl space-y-3 py-10">
-          <h2 className="text-2xl font-semibold">What we need from the operators</h2>
-          <p className="text-muted">Closing slide. Fill in from docs/DEMO_SCRIPT.md.</p>
-        </div>
-      )}
+      {step === 4 && <CloseScreen />}
     </Shell>
   )
 }

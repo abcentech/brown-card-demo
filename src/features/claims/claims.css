@@ -1,0 +1,12 @@
+/* Live-arrival highlight for the claims dashboard: a 3 s fade from gold to transparent. No library. */
+@keyframes claim-arrival {
+  0% { background-color: rgba(184, 135, 31, 0.55); box-shadow: inset 6px 0 0 #b8871f; }
+  60% { background-color: rgba(184, 135, 31, 0.3); box-shadow: inset 6px 0 0 #b8871f; }
+  100% { background-color: transparent; box-shadow: inset 6px 0 0 transparent; }
+}
+.claim-arrival {
+  animation: claim-arrival 3s ease-out forwards;
+}
+@media (prefers-reduced-motion: reduce) {
+  .claim-arrival { animation-duration: 0.01s; }
+}
