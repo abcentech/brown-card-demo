@@ -1,19 +1,19 @@
 # Presenter cue card (Monday)
 
 One accident, five steps, 30 minutes. Drive it from the stepper at the top of the main window. Keys `1` to `5` jump to
-a step; `Shift+R` resets everything (in every window). Screenshots in `docs/screenshots/` show what the projector
+a step; `Shift+R` in the main window resets everything (the claims window follows). Screenshots in `docs/screenshots/` show what the projector
 should look like at 1366 x 768. The whole click path is rehearsed by `tests/e2e/full-run.spec.ts` (about 12 seconds
 when a machine does it).
 
 Two windows: the **main window** (the stepper) on the projector, and the **claims window** (`/?view=claims`) ready
-behind it or on the second screen. The `Open claims window` button in the header opens it.
+behind it or on the second screen. The `Open claims window` link in the header opens it in a new browser tab (drag the tab out into its own window).
 
 ## Before you leave the office
 
 - [ ] `npm run build` (must finish with "built in" and no errors)
 - [ ] `npm run preview` and open `http://localhost:4173/`
-- [ ] Open a second window at `http://localhost:4173/?view=claims` (or press `Open claims window`)
-- [ ] Network off test: turn Wi-Fi off, reload both windows, click through steps 1 to 5, issue a policy. All of it must work.
+- [ ] Open a second window at `http://localhost:4173/?view=claims` (or click the `Open claims window` link, which opens a new tab)
+- [ ] Network off test: load both windows first, then turn Wi-Fi off and click through steps 1 to 5 and issue a policy. All of it must work. Reloading offline works only while the local server (`npm run preview`) is still running; a hosted copy needs the network to reload.
 - [ ] Wi-Fi back on (or leave it off; the demo does not need it)
 - [ ] Press `Reset demo`. Check: `Issued this session (0)`, the phone says `Dial *000#`, compliance reads `93.4%`
 - [ ] Browser zoom at 100%, projector at 1366 x 768 or larger, laptop not in battery-saver mode
@@ -101,7 +101,7 @@ Clicks:
 2. Scroll to `Exception list`. Set `Channel` to `Broker` (or `Insurer` to one insurer). The count changes to
    `Showing 30 of 150 batches`.
 3. Tick five open batches. The bar reads `5 batches selected · N policies`.
-4. Click `Back-fill`. A toast reads `Cleared … policies in 5 batches`; the ticked rows turn `Resolved`.
+4. Click `Back-fill`. A toast reads `Cleared … policies in 5 batches`; the ticked rows leave the list. The `Status` filter defaults to `Still to resolve`, so resolved batches are hidden; set it to `All statuses` to show them as `Resolved`.
 5. Scroll up: the headline has climbed (93.4% to 93.6% in rehearsal) and the marker moved. Scroll back down.
 6. Tick three more open batches. Click `Remind` (rows turn `Reminded`), then `Assign` (rows turn `Assigned` with
    `Compliance desk, Insurer X`).
@@ -145,8 +145,8 @@ Fallback: if the screen is lost, the same content is in `docs/DEMO_SCRIPT.md` an
 
 ## If everything goes wrong
 
-- `Shift+R` in any window resets both windows in under a second.
+- `Shift+R` in the main window resets both windows in under a second. The claims window has no reset of its own.
 - Reload: state survives a reload, so you continue where you were.
-- Second window lost: click `Open claims window` in the header, or type `/?view=claims` after the address.
+- Second window lost: click the `Open claims window` link in the header, or type `/?view=claims` after the address.
 - Projector too small: zoom out one step with `Ctrl+-`; the layout holds down to about 1024 px wide.
 - Remember the banner: everything is illustrative data; Insurers A to L; no real people or numbers.

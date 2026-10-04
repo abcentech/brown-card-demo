@@ -109,7 +109,7 @@ export default function CorridorDiagram({ claim }: { claim: Claim | null }) {
       <HLink state={links.handshake} />
       <Node
         title="Handling bureau"
-        name={claim?.handlingBureau ?? 'Accident country'}
+        name={claim?.handlingBureau ?? 'Local bureau'}
         note={claim ? `Accident in ${claim.accidentCountry}` : undefined}
         pill={stage === null ? 'Waiting' : HANDSHAKE[stage].handling}
         tone={paid ? 'done' : toneFor(links.handshake)}
